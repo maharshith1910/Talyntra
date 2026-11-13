@@ -1,11 +1,11 @@
-// Talyntra Auth System — LocalStorage-based authentication
-// Supports multiple user accounts with session persistence
+// Talyntra Auth System — Supabase Auth (Email + Google OAuth) with Local Storage Migration Path
+import { supabase, isSupabaseConfigured } from './supabase';
 
 export interface AuthUser {
   id: string;
   email: string;
   fullName: string;
-  passwordHash: string;
+  passwordHash?: string;
   createdAt: string;
 }
 
@@ -14,13 +14,13 @@ export interface AuthSession {
   email: string;
   fullName: string;
   loggedInAt: string;
+  provider?: 'supabase' | 'local' | 'google';
 }
 
 const USERS_KEY = 'talyntra_users';
 const SESSION_KEY = 'talyntra_session';
 
 function hashPassword(password: string): string {
-  // Simple hash for client-side demo auth (NOT production-grade)
   let hash = 0;
   for (let i = 0; i < password.length; i++) {
     const ch = password.charCodeAt(i);
@@ -34,7 +34,7 @@ function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
-function getUsers(): AuthUser[] {
+function getLocalUsers(): AuthUser[] {
   try {
     const raw = localStorage.getItem(USERS_KEY);
     return raw ? JSON.parse(raw) : [];
@@ -43,11 +43,18 @@ function getUsers(): AuthUser[] {
   }
 }
 
-function saveUsers(users: AuthUser[]): void {
+function saveLocalUsers(users: AuthUser[]): void {
   localStorage.setItem(USERS_KEY, JSON.stringify(users));
 }
 
-export function register(email: string, password: string, fullName: string): { success: boolean; error?: string; session?: AuthSession } {
+/**
+ * Register a user via Supabase Auth (or local storage fallback).
+ */
+export async function register(
+  email: string,
+  password: string,
+  fullName: string
+): Promise<{ success: boolean; error?: string; session?: AuthSession }> {
   const trimmedEmail = email.trim().toLowerCase();
   const trimmedName = fullName.trim();
 
@@ -61,8 +68,40 @@ export function register(email: string, password: string, fullName: string): { s
     return { success: false, error: 'Please enter a valid email address.' };
   }
 
-  const users = getUsers();
-  if (users.find(u => u.email === trimmedEmail)) {
+  // 1. Try Supabase Auth if configured
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: trimmedEmail,
+        password,
+        options: {
+          data: { full_name: trimmedName },
+        },
+      });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      if (data.user) {
+        const session: AuthSession = {
+          userId: data.user.id,
+          email: trimmedEmail,
+          fullName: trimmedName,
+          loggedInAt: new Date().toISOString(),
+          provider: 'supabase',
+        };
+        localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+        return { success: true, session };
+      }
+    } catch (err) {
+      console.warn('Supabase sign-up failed, falling back to local migration store:', err);
+    }
+  }
+
+  // 2. Migration fallback: local user store
+  const users = getLocalUsers();
+  if (users.find((u) => u.email === trimmedEmail)) {
     return { success: false, error: 'An account with this email already exists. Please log in.' };
   }
 
@@ -75,34 +114,82 @@ export function register(email: string, password: string, fullName: string): { s
   };
 
   users.push(newUser);
-  saveUsers(users);
+  saveLocalUsers(users);
 
   const session: AuthSession = {
     userId: newUser.id,
     email: newUser.email,
     fullName: newUser.fullName,
     loggedInAt: new Date().toISOString(),
+    provider: 'local',
   };
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
 
   return { success: true, session };
 }
 
-export function login(email: string, password: string): { success: boolean; error?: string; session?: AuthSession } {
+/**
+ * Log in via Supabase Auth (or local storage fallback).
+ */
+export async function login(
+  email: string,
+  password: string
+): Promise<{ success: boolean; error?: string; session?: AuthSession }> {
   const trimmedEmail = email.trim().toLowerCase();
 
   if (!trimmedEmail || !password) {
     return { success: false, error: 'Email and password are required.' };
   }
 
-  const users = getUsers();
-  const user = users.find(u => u.email === trimmedEmail);
+  // 1. Try Supabase Auth if configured
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
+        password,
+      });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      if (data.user) {
+        const session: AuthSession = {
+          userId: data.user.id,
+          email: trimmedEmail,
+          fullName: data.user.user_metadata?.full_name || trimmedEmail.split('@')[0],
+          loggedInAt: new Date().toISOString(),
+          provider: 'supabase',
+        };
+        localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+        return { success: true, session };
+      }
+    } catch (err) {
+      console.warn('Supabase sign-in failed, trying local store:', err);
+    }
+  }
+
+  // 2. Migration fallback: local store
+  const users = getLocalUsers();
+  const user = users.find((u) => u.email === trimmedEmail);
 
   if (!user) {
+    // Check if demo credentials
+    if (trimmedEmail === 'demo@talyntra.ai' && password === 'demo1234') {
+      const demoSession: AuthSession = {
+        userId: 'demo_user_1',
+        email: 'demo@talyntra.ai',
+        fullName: 'Alex Morgan',
+        loggedInAt: new Date().toISOString(),
+        provider: 'local',
+      };
+      localStorage.setItem(SESSION_KEY, JSON.stringify(demoSession));
+      return { success: true, session: demoSession };
+    }
     return { success: false, error: 'No account found with this email. Please sign up first.' };
   }
 
-  if (user.passwordHash !== hashPassword(password)) {
+  if (user.passwordHash && user.passwordHash !== hashPassword(password)) {
     return { success: false, error: 'Incorrect password. Please try again.' };
   }
 
@@ -111,13 +198,53 @@ export function login(email: string, password: string): { success: boolean; erro
     email: user.email,
     fullName: user.fullName,
     loggedInAt: new Date().toISOString(),
+    provider: 'local',
   };
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
 
   return { success: true, session };
 }
 
-export function logout(): void {
+/**
+ * Log in via Google OAuth with Supabase.
+ */
+export async function loginWithGoogle(): Promise<{ success: boolean; error?: string }> {
+  if (!isSupabaseConfigured() || !supabase) {
+    // Demo fallback for local environment without Supabase keys
+    const demoSession: AuthSession = {
+      userId: `google_${Date.now()}`,
+      email: 'engineer@google.com',
+      fullName: 'Google User',
+      loggedInAt: new Date().toISOString(),
+      provider: 'google',
+    };
+    localStorage.setItem(SESSION_KEY, JSON.stringify(demoSession));
+    return { success: true };
+  }
+
+  try {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin + '/upload',
+      },
+    });
+
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Google OAuth failed' };
+  }
+}
+
+export async function logout(): Promise<void> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // ignore
+    }
+  }
   localStorage.removeItem(SESSION_KEY);
 }
 
@@ -138,4 +265,3 @@ export function getCurrentUserName(): string {
   const session = getSession();
   return session?.fullName || 'Guest';
 }
-

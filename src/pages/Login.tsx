@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import Aurora from '../components/Aurora';
 import Logo from '../components/Logo';
 import Button from '../components/Button';
-import { login, register, isAuthenticated } from '../lib/auth';
+import { login, register, loginWithGoogle, isAuthenticated, getSession } from '../lib/auth';
 import { useStore } from '../lib/store';
 
 export default function Login() {
@@ -42,11 +42,8 @@ export default function Login() {
     setError('');
     setLoading(true);
 
-    // Small delay to feel responsive
-    await new Promise(r => setTimeout(r, 300));
-
     if (isSignup) {
-      const result = register(email, password, fullName);
+      const result = await register(email, password, fullName);
       if (result.success && result.session) {
         setAuth(result.session);
         setProfile({ fullName: result.session.fullName });
@@ -55,7 +52,7 @@ export default function Login() {
         setError(result.error || 'Registration failed');
       }
     } else {
-      const result = login(email, password);
+      const result = await login(email, password);
       if (result.success && result.session) {
         setAuth(result.session);
         setProfile({ fullName: result.session.fullName });
@@ -68,23 +65,32 @@ export default function Login() {
     setLoading(false);
   };
 
-  const handleProviderLogin = () => {
-    // Simulate OAuth — register/login with a demo account
-    const demoEmail = 'demo@talyntra.ai';
-    const demoPass = 'demo1234';
-    const demoName = 'Alex Morgan';
-
-    // Try login first, then register
-    let result = login(demoEmail, demoPass);
-    if (!result.success) {
-      result = register(demoEmail, demoPass, demoName);
+  const handleGoogleLogin = async () => {
+    setError('');
+    setLoading(true);
+    const result = await loginWithGoogle();
+    if (result.success) {
+      const session = getSession();
+      if (session) {
+        setAuth(session);
+        setProfile({ fullName: session.fullName });
+        nav('/upload');
+      }
+    } else {
+      setError(result.error || 'Google sign in failed');
     }
+    setLoading(false);
+  };
 
+  const handleDemoLogin = async () => {
+    setLoading(true);
+    const result = await login('demo@talyntra.ai', 'demo1234');
     if (result.success && result.session) {
       setAuth(result.session);
       setProfile({ fullName: result.session.fullName });
       nav('/upload');
     }
+    setLoading(false);
   };
 
   return (
@@ -96,9 +102,7 @@ export default function Login() {
           {isSignup ? 'Sign up to start your career analysis journey' : 'Log in to continue your career journey'}
         </p>
 
-        {error && (
-          <div className="login-error">{error}</div>
-        )}
+        {error && <div className="login-error">{error}</div>}
 
         <form onSubmit={handleSubmit} className="login__form">
           {isSignup && (
@@ -140,37 +144,58 @@ export default function Login() {
 
           <Button type="submit" className="login__continue" disabled={loading}>
             {loading ? (
-              <><div className="spinner-sm" /> {isSignup ? 'Creating Account…' : 'Signing In…'}</>
+              <>
+                <div className="spinner-sm" /> {isSignup ? 'Creating Account…' : 'Signing In…'}
+              </>
+            ) : isSignup ? (
+              'Create Account'
             ) : (
-              isSignup ? 'Create Account' : 'Sign In'
+              'Sign In'
             )}
           </Button>
         </form>
 
         <div style={{ textAlign: 'center', fontSize: 14 }}>
           <button
-            onClick={() => { setIsSignup(!isSignup); setError(''); }}
-            style={{ background: 'none', border: 0, color: 'var(--accent-cyan)', cursor: 'pointer', textDecoration: 'underline', fontSize: 14 }}
+            onClick={() => {
+              setIsSignup(!isSignup);
+              setError('');
+            }}
+            style={{
+              background: 'none',
+              border: 0,
+              color: 'var(--accent-cyan)',
+              cursor: 'pointer',
+              textDecoration: 'underline',
+              fontSize: 14,
+            }}
           >
             {isSignup ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
           </button>
         </div>
 
-        <div className="divider"><span>or</span></div>
+        <div className="divider">
+          <span>or</span>
+        </div>
 
-        <button className="provider" onClick={handleProviderLogin}>
+        <button className="provider" onClick={handleGoogleLogin} disabled={loading}>
+          <span style={{ marginRight: 8 }}>🔵</span> Sign in with Google (Supabase)
+        </button>
+        <button className="provider" onClick={handleDemoLogin} disabled={loading}>
           <span style={{ marginRight: 8 }}>🚀</span> Quick Start with Demo Account
-        </button>
-        <button className="provider" onClick={handleProviderLogin}>
-          <span style={{ marginRight: 8 }}>🔵</span> Sign in with Google
-        </button>
-        <button className="provider" onClick={handleProviderLogin}>
-          <span style={{ marginRight: 8 }}>⬜</span> Sign in with Microsoft
         </button>
 
         <button
           onClick={() => nav('/')}
-          style={{ marginTop: 8, background: 'none', border: 0, color: 'var(--muted)', cursor: 'pointer', fontSize: 13, textDecoration: 'underline' }}
+          style={{
+            marginTop: 8,
+            background: 'none',
+            border: 0,
+            color: 'var(--muted)',
+            cursor: 'pointer',
+            fontSize: 13,
+            textDecoration: 'underline',
+          }}
         >
           ← Back to Home
         </button>
