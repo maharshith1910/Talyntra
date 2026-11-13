@@ -10,7 +10,7 @@ import {
 } from './mockAI';
 import { EvidenceGraph, addVerifiedTaskToGraph } from './evidenceGraph';
 import { AuthSession, getSession } from './auth';
-import { hasApiKey } from './geminiAI';
+import { isServerAiConfigured } from './geminiAI';
 
 export interface TalyntraState {
   profile: Profile;
@@ -67,7 +67,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         return {
           ...parsed,
           auth: session,
-          aiConnected: hasApiKey(),
+          aiConnected: isServerAiConfigured(),
           evidenceGraph: parsed.skills?.evidenceGraph || parsed.evidenceGraph || null,
         };
       }
@@ -85,7 +85,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       validation: null,
       roadmap: null,
       auth: session,
-      aiConnected: hasApiKey(),
+      aiConnected: isServerAiConfigured(),
     };
   });
 
@@ -218,7 +218,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }));
 
   const refreshAiStatus = () =>
-    setState((s) => ({ ...s, aiConnected: hasApiKey() }));
+    setState((s) => ({ ...s, aiConnected: isServerAiConfigured() }));
 
   const resetAll = () => {
     localStorage.removeItem(STORAGE_KEY);
@@ -233,7 +233,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       validation: null,
       roadmap: null,
       auth: null,
-      aiConnected: hasApiKey(),
+      aiConnected: isServerAiConfigured(),
     });
   };
 

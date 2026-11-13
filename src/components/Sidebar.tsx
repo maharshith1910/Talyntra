@@ -2,7 +2,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
 import Logo from './Logo';
 import { useStore } from '../lib/store';
-import { hasApiKey } from '../lib/geminiAI';
+import { isServerAiConfigured } from '../lib/geminiAI';
 import { logout } from '../lib/auth';
 
 export default function Sidebar() {
@@ -104,7 +104,7 @@ export default function Sidebar() {
   ];
 
   const initial = state.profile.fullName ? state.profile.fullName.charAt(0).toUpperCase() : 'U';
-  const aiConnected = hasApiKey();
+  const aiConnected = isServerAiConfigured();
 
   // ESC key => go back
   useEffect(() => {
@@ -163,7 +163,7 @@ export default function Sidebar() {
       <div className="sidebar__quick-actions">
         <div className={`sidebar__badge ${aiConnected ? 'sidebar__badge--live' : ''}`}>
           <span className="sidebar__pulse" />
-          {aiConnected ? 'Gemini AI Live' : 'Demo Mode'}
+          {aiConnected ? 'FastAPI + Gemini' : 'Evidence Engine'}
         </div>
       </div>
 

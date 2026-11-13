@@ -15,3 +15,4 @@ SET
     category = EXCLUDED.category,
     default_half_life_days = EXCLUDED.default_half_life_days,
     benchmark_weight = EXCLUDED.benchmark_weight;
+

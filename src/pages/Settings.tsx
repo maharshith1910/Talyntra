@@ -1,49 +1,17 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Button from '../components/Button';
 import { useStore } from '../lib/store';
-import { hasApiKey, setApiKey, clearApiKey, validateApiKey } from '../lib/geminiAI';
 import { logout } from '../lib/auth';
+import { isSupabaseConfigured } from '../lib/supabase';
+import { isRemoteBackendConfigured } from '../lib/apiClient';
 
 export default function Settings() {
   const nav = useNavigate();
-  const { state, setAuth, refreshAiStatus, resetAll } = useStore();
+  const { state, setAuth, resetAll } = useStore();
 
-  const [keyInput, setKeyInput] = useState('');
-  const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
-  const [showKey, setShowKey] = useState(false);
-
-  const currentKeyExists = hasApiKey();
-
-  const handleSaveKey = async () => {
-    const key = keyInput.trim();
-    if (!key) return;
-
-    setTesting(true);
-    setTestResult(null);
-
-    const result = await validateApiKey(key);
-    if (result.valid) {
-      setApiKey(key);
-      refreshAiStatus();
-      setTestResult({ ok: true, msg: 'API key verified and saved. Talyntra AI is now live!' });
-      setKeyInput('');
-    } else {
-      setTestResult({ ok: false, msg: result.error || 'Invalid API key' });
-    }
-    setTesting(false);
-  };
-
-  const handleRemoveKey = () => {
-    clearApiKey();
-    refreshAiStatus();
-    setTestResult({ ok: true, msg: 'API key removed. Talyntra will use offline mode.' });
-  };
-
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     setAuth(null);
     nav('/login');
   };
@@ -54,6 +22,9 @@ export default function Settings() {
     }
   };
 
+  const supabaseOk = isSupabaseConfigured();
+  const backendOk = isRemoteBackendConfigured();
+
   return (
     <div className="chat">
       <Sidebar />
@@ -62,105 +33,83 @@ export default function Settings() {
         <div className="skills-container page-enter">
           <header className="skills-header">
             <div>
-              <span className="skills-pretitle">SETTINGS & CONFIGURATION</span>
-              <h1 className="skills-title">Talyntra Settings</h1>
+              <span className="skills-pretitle">SETTINGS &amp; ARCHITECTURE</span>
+              <h1 className="skills-title">Talyntra System Settings</h1>
               <p className="skills-subtitle">
-                Configure your AI connection, account, and preferences.
+                Inspect your Supabase connection, FastAPI backend, and account preferences.
               </p>
             </div>
           </header>
 
-          {/* AI Connection */}
+          {/* Target Architecture Status & Zero-Browser-Key Security */}
           <section className="glass settings-card">
             <div className="settings-card__head">
               <h3>
                 <span className="sidebar__icon" style={{ display: 'inline-flex', marginRight: 8 }}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M12 2a10 10 0 0 1 10 10c0 5.52-4.48 10-10 10a9.96 9.96 0 0 1-5-1.34L2 22l1.34-5A9.96 9.96 0 0 1 2 12C2 6.48 6.48 2 12 2z" />
+                    <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
+                    <rect x="2" y="14" width="20" height="8" rx="2" ry="2" />
+                    <line x1="6" y1="6" x2="6.01" y2="6" />
+                    <line x1="6" y1="18" x2="6.01" y2="18" />
                   </svg>
                 </span>
-                Gemini AI Connection
+                Target Architecture &amp; Security
               </h3>
-              <div className={`status-indicator ${state.aiConnected ? 'status--online' : 'status--offline'}`}>
+              <div className="status-indicator status--online">
                 <span className="status-dot" />
-                {state.aiConnected ? 'Connected — Live AI' : 'Offline — Mock Responses'}
+                Zero Browser Key Exposure
               </div>
             </div>
 
             <p className="settings-desc">
-              Connect your Google Gemini API key to enable real-time AI-powered career guidance,
-              streaming responses, and intelligent skill analysis. Without a key, Talyntra operates
-              in offline demo mode with pre-generated responses.
+              Talyntra adheres to strict production security standards: Google Gemini API keys live exclusively
+              in server-side environment variables on the <strong>FastAPI service</strong>. No API keys are ever stored
+              in <code>localStorage</code> or compiled into the client-side JavaScript bundle.
             </p>
 
-            <div className="settings-field-row">
-              <input
-                className="field settings-key-input"
-                type={showKey ? 'text' : 'password'}
-                value={keyInput}
-                onChange={(e) => setKeyInput(e.target.value)}
-                placeholder={currentKeyExists ? '••••••••••••••••• (key saved)' : 'Paste your Gemini API key here…'}
-                onKeyDown={(e) => e.key === 'Enter' && handleSaveKey()}
-              />
-              <button
-                className="settings-eye-btn"
-                onClick={() => setShowKey(!showKey)}
-                title={showKey ? 'Hide' : 'Show'}
-                type="button"
-              >
-                {showKey ? '🙈' : '👁'}
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 12 }}>
-              <Button onClick={handleSaveKey} disabled={testing || !keyInput.trim()}>
-                {testing ? (
-                  <><div className="spinner-sm" /> Validating…</>
-                ) : (
-                  'Save & Verify Key'
-                )}
-              </Button>
-              {currentKeyExists && (
-                <Button variant="glass" onClick={handleRemoveKey}>
-                  Remove Key
-                </Button>
-              )}
-            </div>
-
-            {testResult && (
-              <div className={`settings-toast ${testResult.ok ? 'settings-toast--ok' : 'settings-toast--err'}`}>
-                {testResult.ok ? '✓' : '✗'} {testResult.msg}
+            {/* Architecture Services Telemetry */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12, marginTop: 8 }}>
+              <div className="glass" style={{ padding: 14, borderRadius: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <strong>FastAPI AI Service</strong>
+                  <span className={`confidence-badge ${backendOk ? 'confidence--verified' : 'confidence--moderate'}`}>
+                    {backendOk ? 'Connected' : 'Local Engine Mode'}
+                  </span>
+                </div>
+                <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
+                  Endpoint: {backendOk ? 'Custom API Gateway' : 'http://localhost:8000'}
+                </p>
               </div>
-            )}
 
-            <div className="settings-help">
-              <strong>How to get a free Gemini API key:</strong>
-              <ol>
-                <li>Go to <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">aistudio.google.com/apikey</a></li>
-                <li>Sign in with your Google account</li>
-                <li>Click "Create API Key" and copy it</li>
-                <li>Paste it above and click "Save & Verify"</li>
-              </ol>
+              <div className="glass" style={{ padding: 14, borderRadius: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <strong>Supabase Auth &amp; DB</strong>
+                  <span className={`confidence-badge ${supabaseOk ? 'confidence--verified' : 'confidence--moderate'}`}>
+                    {supabaseOk ? 'Connected' : 'Local Migration Fallback'}
+                  </span>
+                </div>
+                <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
+                  Row-Level Security &amp; Postgres schema enabled
+                </p>
+              </div>
             </div>
           </section>
 
           {/* Account */}
           <section className="glass settings-card">
-            <h3>Account</h3>
+            <h3>Account &amp; Session</h3>
             <div className="settings-account-row">
               <div className="avatar-circle" style={{ width: 48, height: 48, fontSize: 22 }}>
                 {(state.auth?.fullName || state.profile.fullName || 'U').charAt(0).toUpperCase()}
               </div>
               <div>
-                <strong>{state.auth?.fullName || state.profile.fullName || 'Guest'}</strong>
+                <strong>{state.auth?.fullName || state.profile.fullName || 'Guest User'}</strong>
                 <div style={{ fontSize: 13, color: 'var(--muted)' }}>
-                  {state.auth?.email || 'Not logged in'}
+                  {state.auth?.email || 'demo@talyntra.ai'}
                 </div>
-                {state.auth?.loggedInAt && (
-                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                    Session started: {new Date(state.auth.loggedInAt).toLocaleString()}
-                  </div>
-                )}
+                <div style={{ fontSize: 12, color: 'var(--accent-cyan)', marginTop: 2 }}>
+                  Auth Provider: {state.auth?.provider || 'Supabase / Local'}
+                </div>
               </div>
             </div>
 
@@ -169,7 +118,7 @@ export default function Settings() {
                 Sign Out
               </Button>
               <Button variant="glass" onClick={handleResetData}>
-                Reset All Data
+                Reset Local State
               </Button>
             </div>
           </section>
@@ -178,16 +127,12 @@ export default function Settings() {
           <section className="glass settings-card">
             <h3>About Talyntra</h3>
             <p className="settings-desc">
-              Talyntra v2.0 — Intelligent Career & CV Skill Validator.
-              Built with React 18, TypeScript, Vite, and Google Gemini AI.
+              Talyntra — The Skill-Evidence Engine for Resumes.
+              Powered by Evidence Graphs, exponential recency time decay, and quantitative Learning-ROI gap ranking.
             </p>
-            <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 8 }}>
-              Upload your CV. Discover your edge. Close your gaps.
-            </div>
           </section>
         </div>
       </main>
     </div>
   );
 }
-

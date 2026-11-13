@@ -59,13 +59,13 @@ export default function Skills() {
             {/* Top Bar with Role Info */}
             <header className="skills-header">
               <div>
-                <span className="skills-pretitle">INTERFACE 2 • EVIDENCE GRAPH VALIDATOR</span>
+                <span className="skills-pretitle">INTERFACE 2 • EVIDENCE GRAPH ENGINE</span>
                 <h1 className="skills-title">
-                  {skills?.roleMatchTitle || state.profile.targetRole || 'Skill Set Output'}
+                  {skills?.roleMatchTitle || state.profile.targetRole || 'Software Engineer'}
                 </h1>
                 <p className="skills-subtitle">
-                  Evidence-grounded claims from <strong>{state.profile.fileName || 'Your CV'}</strong> for candidate{' '}
-                  <strong>{state.profile.fullName}</strong> ({state.profile.experience})
+                  Evidence-grounded claims for <strong>{state.profile.fullName || 'Alex Morgan'}</strong> pursuing{' '}
+                  <strong>{state.profile.targetRole || 'Software Engineer'}</strong> ({state.profile.experience || '3+ years'})
                 </p>
               </div>
 
@@ -82,7 +82,7 @@ export default function Skills() {
                 onClick={() => setParams({})}
               >
                 <span className="tab-num">2.0</span>
-                <span>Verified Claims ({skills?.detectedSkills.length || 0})</span>
+                <span>Skill Claims &amp; Evidence ({skills?.detectedSkills.length || 0})</span>
               </button>
 
               <button
@@ -95,11 +95,11 @@ export default function Skills() {
               </button>
             </div>
 
-            {/* Tab 1: Detected Skills with Evidence & Time Decay */}
+            {/* Tab 1: Detected Skills with Claimed vs Evidenced & Expander */}
             {activeTab === 'detected' && (
               <section className="tab-content">
                 <div className="filter-chips">
-                  {(['All', 'Technical', 'Soft', 'Needs Proof'] as const).map((cat) => (
+                  {(['All', 'Technical', 'Domain', 'Needs Proof'] as const).map((cat) => (
                     <button
                       key={cat}
                       className={`chip ${filterCat === cat ? 'chip--active' : ''}`}
@@ -139,6 +139,38 @@ export default function Skills() {
                           )}
                         </div>
 
+                        {/* Claimed Level vs Evidenced Level vs Confidence Metric Grid */}
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(3, 1fr)',
+                            gap: 6,
+                            background: 'rgba(0,0,0,0.25)',
+                            padding: '6px 8px',
+                            borderRadius: 6,
+                            margin: '4px 0',
+                            fontSize: 12,
+                            textAlign: 'center',
+                          }}
+                        >
+                          <div>
+                            <div style={{ color: 'var(--muted)', fontSize: 10, textTransform: 'uppercase' }}>Claimed</div>
+                            <div style={{ fontWeight: 700, color: '#fff' }}>{sk.claimedLevel}%</div>
+                          </div>
+                          <div>
+                            <div style={{ color: 'var(--muted)', fontSize: 10, textTransform: 'uppercase' }}>Evidenced</div>
+                            <div style={{ fontWeight: 700, color: isInsufficient ? '#fca5a5' : 'var(--accent-cyan)' }}>
+                              {sk.evidencedLevel !== null ? `${sk.evidencedLevel}%` : '< 35%'}
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ color: 'var(--muted)', fontSize: 10, textTransform: 'uppercase' }}>Confidence</div>
+                            <div style={{ fontWeight: 800, color: isInsufficient ? '#fca5a5' : '#34d399' }}>
+                              {sk.proficiency > 0 ? `${sk.proficiency}%` : 'NULL'}
+                            </div>
+                          </div>
+                        </div>
+
                         {/* Confidence Progress Bar */}
                         <div className="skill-bar-track">
                           <div
@@ -147,9 +179,9 @@ export default function Skills() {
                               width: `${isInsufficient ? 10 : sk.proficiency}%`,
                               background: isInsufficient
                                 ? '#ef4444'
-                                : sk.proficiency >= 85
+                                : sk.proficiency >= 80
                                 ? 'linear-gradient(90deg, #008f94, #2fc9c6)'
-                                : sk.proficiency >= 70
+                                : sk.proficiency >= 65
                                 ? 'linear-gradient(90deg, #4f46e5, #7ef0ec)'
                                 : 'linear-gradient(90deg, #f59e0b, #fbbf24)',
                             }}
@@ -158,20 +190,25 @@ export default function Skills() {
 
                         {/* Recency Time-Decay Metadata */}
                         <div className="decay-meta">
-                          <span>🕒 Last verified: {sk.lastDemonstratedDate || 'N/A'}</span>
+                          <span>
+                            🕒 Last verified: <strong>{sk.lastDemonstratedDate || 'Unverified'}</strong>
+                          </span>
                           <span>•</span>
-                          <span>{Math.round(sk.timeDecayFactor * 100)}% retention</span>
+                          <span>
+                            {Math.round(sk.timeDecayFactor * 100)}% retention ({sk.daysElapsed}d ago)
+                          </span>
                         </div>
 
-                        {/* Category & Evidence Drawer Toggle */}
+                        {/* Category & "Why this score" Expander Button */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
                           <span className="skill-tag">{sk.category}</span>
                           <button
                             type="button"
                             className="evidence-btn"
                             onClick={() => toggleExpand(sk.claimId)}
+                            title="Inspect mathematical reasoning and linked citations"
                           >
-                            <span>{isExpanded ? 'Hide Evidence' : 'Inspect Evidence'}</span>
+                            <span>{isExpanded ? 'Hide Breakdown' : 'Why this score?'}</span>
                             <span>({sk.evidenceCount})</span>
                           </button>
                         </div>
@@ -200,14 +237,16 @@ export default function Skills() {
                                     <p className="evidence-quote">"{ev.rawText}"</p>
                                     <div className="evidence-context">
                                       <span>Context: {ev.sourceContext}</span>
-                                      {ev.verified && <span style={{ color: '#34d399', marginLeft: 8 }}>✓ Verified</span>}
+                                      {ev.verified && <span style={{ color: '#34d399', marginLeft: 8 }}>✓ Verified Citation</span>}
                                     </div>
                                   </div>
                                 ))
                               ) : (
-                                <p style={{ fontSize: 12, color: '#fca5a5' }}>
-                                  No verifiable citations linked. Skill listed without documented projects or quantifiable outcomes.
-                                </p>
+                                <div style={{ fontSize: 12, color: '#fca5a5', padding: '4px 0' }}>
+                                  ⚠️ <strong>Thin Evidence:</strong> This skill was listed as a keyword with no project
+                                  metrics or recent code artifacts. To verify this claim and raise confidence, complete the
+                                  corresponding roadmap task in Interface 4.
+                                </div>
                               )}
                             </div>
                           </div>
@@ -235,7 +274,16 @@ export default function Skills() {
             {/* Tab 2: Missing Skills Ranked by Learning-ROI */}
             {activeTab === 'missing' && (
               <section className="tab-content">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 16,
+                    flexWrap: 'wrap',
+                    gap: 10,
+                  }}
+                >
                   <p className="missing-intro" style={{ margin: 0 }}>
                     Skills ranked by <strong>Learning-ROI</strong> (Roles Unlocked per Hour of Effort).
                     Closing high-ROI gaps gives maximum career advancement for minimum time invested.

@@ -215,19 +215,22 @@ function buildMockEvidenceGraph(roleType: string, profile: Profile): EvidenceGra
     addClaim('claim-arch', 'Technical RFCs & System Design', 'Soft', [e5], 48);
     addClaim('claim-k8s', 'Kubernetes & Service Mesh', 'Technical', [eWeakK8s], 24);
   } else {
-    // general / fullstack / data
-    const e1 = addNode('ev-gen-1', 'resume_bullet', 'Delivered full-stack web applications from architectural schema to production cloud deployment.', 'Full Stack Engineer', '2024-01', 0.9, true);
-    const e2 = addNode('ev-gen-2', 'resume_bullet', 'Designed and maintained relational database schemas, automated migrations, and REST endpoints.', 'Core Engineering', '2023-11', 0.88, true);
-    const e3 = addNode('ev-gen-3', 'resume_bullet', 'Partnered with product managers and designers to translate business requirements into working software.', 'Product Team', '2024-03', 0.85, true);
-    const e4 = addNode('ev-gen-4', 'project_artifact', 'Maintained automated unit test coverage and continuous integration deployments on AWS.', 'Cloud Infrastructure', '2023-08', 0.82, true);
+    // Single Role Slice: Software Engineer / General
+    const e1 = addNode('ev-se-1', 'resume_bullet', 'Migrated 80k lines of legacy JavaScript to strict TypeScript with zero any escapes, reducing runtime type errors by 44%.', 'Senior Software Engineer @ FinTech (2024)', '2024-03', 0.95, true);
+    const e2 = addNode('ev-se-2', 'resume_bullet', 'Engineered distributed REST microservices handling 15,000 req/sec with p99 latency < 50ms using Node.js and Redis caching.', 'Backend Engineer @ CloudScale (2024)', '2024-04', 0.95, true);
+    const e3 = addNode('ev-se-3', 'resume_bullet', 'Architected Vitest and Playwright test suites covering 88% of critical checkout flows, preventing production regressions.', 'Full Stack Engineer @ E-Commerce (2024)', '2024-01', 0.90, true);
+    const e4 = addNode('ev-se-4', 'project_artifact', 'Normalized PostgreSQL relational schemas and implemented composite B-Tree indexes, speeding up query execution by 3.2x.', 'Software Engineer (2023)', '2023-09', 0.85, true);
+    const e5 = addNode('ev-se-5', 'resume_bullet', 'Authored GitHub Actions workflows and multi-stage Docker builds to automate testing and preview deployments.', 'DevOps Contributor (2023)', '2023-11', 0.80, true);
 
-    const eWeakSec = addNode('ev-weak-sec', 'resume_bullet', 'Casual mention of cybersecurity protocols without formal penetration testing, RBAC, or OAuth auditing.', 'Profile Summary', '2020-08', 0.25, false);
+    // Thin evidence node for System Design (triggers Rule 5)
+    const eWeakSys = addNode('ev-weak-sys', 'resume_bullet', 'Mentioned system scalability in resume summary without concrete horizontal partitioning or distributed caching metrics.', 'Resume Summary Keyword', '2021-03', 0.28, false);
 
-    addClaim('claim-fullstack', 'Full Stack Software Architecture', 'Technical', [e1], 24);
-    addClaim('claim-db-gen', 'Database Management & Persistence', 'Technical', [e2], 24);
-    addClaim('claim-collab-gen', 'Product Discovery & Stakeholder Alignment', 'Soft', [e3], 48);
-    addClaim('claim-ci-gen', 'Version Control & Automated Workflows', 'Technical', [e4], 24);
-    addClaim('claim-sec-gen', 'Security Best Practices & OWASP Protocols', 'Technical', [eWeakSec], 24);
+    addClaim('claim-ts', 'TypeScript & Modern JavaScript', 'Technical', [e1], 24, 90);
+    addClaim('claim-api', 'Web Architecture & REST/GraphQL APIs', 'Technical', [e2], 24, 85);
+    addClaim('claim-test', 'Automated Testing (Unit & E2E)', 'Technical', [e3], 24, 80);
+    addClaim('claim-db', 'Databases & Relational Schema Design', 'Technical', [e4], 48, 75);
+    addClaim('claim-cicd', 'CI/CD Pipelines & Containerization', 'Domain', [e5], 24, 70);
+    addClaim('claim-sysdesign', 'System Design & Scalability Principles', 'Technical', [eWeakSys], 48, 80);
   }
 
   // Calculate Missing Skills with quantitative Learning-ROI

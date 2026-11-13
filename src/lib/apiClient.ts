@@ -136,3 +136,4 @@ export async function streamChatRemotely(
     callbacks.onError(err instanceof Error ? err.message : 'Network error');
   }
 }
+

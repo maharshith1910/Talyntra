@@ -1,33 +1,31 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
-import { askTalyntra, Message } from '../lib/mockAI';
+import { Message } from '../lib/mockAI';
 import { useStore } from '../lib/store';
-import { streamChat, buildProfileContext, hasApiKey, GeminiMessage } from '../lib/geminiAI';
+import { streamChat, buildProfileContext, GeminiMessage } from '../lib/geminiAI';
+import { isRemoteBackendConfigured } from '../lib/apiClient';
 
 const uid = () => Math.random().toString(36).slice(2);
 
 export default function Chat() {
-  const nav = useNavigate();
   const { state } = useStore();
   const profile = state.profile;
+  const isBackendLive = isRemoteBackendConfigured();
 
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome',
       role: 'ai',
-      text: `Hello${profile.fullName ? ` ${profile.fullName.split(' ')[0]}` : ''}! I'm Talyntra-AI — your career intelligence engine.${
-        hasApiKey() ? '\n\n🟢 **Live AI Connected** — I\'m powered by Google Gemini and ready to provide personalized career guidance.' : '\n\n⚪ **Demo Mode** — Go to Settings to connect your Gemini API key for live AI responses.'
-      }\n\nI can help with:\n• **Resume feedback** — improve bullet points and quantify impact\n• **Skill gap analysis** — what to learn for your target role\n• **Interview prep** — behavioral and system design practice\n• **Career strategy** — roadmaps, salary benchmarking, and growth\n\nWhat would you like to explore?`,
+      text: `Hello${profile.fullName ? ` ${profile.fullName.split(' ')[0]}` : ''}! I'm Talyntra-AI — your career intelligence engine.\n\n🟢 **Evidence Engine Active** — I evaluate your profile using verified citations, time-decay retention curves, and Learning-ROI rankings.\n\nI can help with:\n• **Evidence Audit** — identify why a skill has weak or insufficient proof\n• **Gap-Closing Strategy** — what milestones unlock the highest career leverage\n• **Interview Calibration** — architectural tradeoffs and STAR behavioral frameworks\n• **Resume Metrics** — rewrite bullet points to maximize Evidence Graph confidence\n\nWhat would you like to explore?`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
 
   const [history] = useState<string[]>([
-    'How do I close my testing gap?',
-    'Help me write better resume bullets',
-    'What salary should I target?',
-    'Run a mock interview question',
+    'How do I close my System Design gap?',
+    'Why is my skill marked insufficient evidence?',
+    'What skills have the highest Learning-ROI?',
+    'Help me write quantified resume bullets',
   ]);
 
   const [text, setText] = useState('');
@@ -41,7 +39,6 @@ export default function Chat() {
     end.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, busy]);
 
-  // Focus input on mount
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
@@ -62,64 +59,43 @@ export default function Chat() {
       { id: uid(), role: 'user', text: prompt, timestamp: now },
     ]);
 
-    // Track Gemini conversation history
     geminiHistory.current.push({ role: 'user', parts: [{ text: prompt }] });
 
-    if (hasApiKey()) {
-      // REAL AI — Streaming Gemini response
-      const aiId = uid();
-      setStreamingId(aiId);
-      setMessages((m) => [
-        ...m,
-        { id: aiId, role: 'ai', text: '', timestamp: now },
-      ]);
+    // Stream AI response
+    const aiId = uid();
+    setStreamingId(aiId);
+    setMessages((m) => [
+      ...m,
+      { id: aiId, role: 'ai', text: '', timestamp: now },
+    ]);
 
-      const profileCtx = buildProfileContext(profile, state.skills);
+    const profileCtx = buildProfileContext(profile, state.skills);
 
-      await streamChat(prompt, profileCtx, geminiHistory.current.slice(0, -1), {
-        onToken: (token) => {
-          setMessages((m) =>
-            m.map((msg) =>
-              msg.id === aiId ? { ...msg, text: msg.text + token } : msg
-            )
-          );
-        },
-        onComplete: (fullText) => {
-          geminiHistory.current.push({ role: 'model', parts: [{ text: fullText }] });
-          setStreamingId(null);
-          setBusy(false);
-        },
-        onError: (error) => {
-          setMessages((m) =>
-            m.map((msg) =>
-              msg.id === aiId
-                ? { ...msg, text: `⚠️ ${error}\n\nFalling back to offline mode for this response.` }
-                : msg
-            )
-          );
-          // Fallback to mock
-          askTalyntra(prompt, profile).then((fallback) => {
-            setMessages((m) =>
-              m.map((msg) =>
-                msg.id === aiId ? { ...msg, text: fallback } : msg
-              )
-            );
-            geminiHistory.current.push({ role: 'model', parts: [{ text: fallback }] });
-            setStreamingId(null);
-            setBusy(false);
-          });
-        },
-      });
-    } else {
-      // MOCK AI — Offline fallback
-      const reply = await askTalyntra(prompt, profile);
-      setMessages((m) => [
-        ...m,
-        { id: uid(), role: 'ai', text: reply, timestamp: now },
-      ]);
-      geminiHistory.current.push({ role: 'model', parts: [{ text: reply }] });
-      setBusy(false);
-    }
+    await streamChat(prompt, profileCtx, geminiHistory.current.slice(0, -1), {
+      onToken: (token) => {
+        setMessages((m) =>
+          m.map((msg) =>
+            msg.id === aiId ? { ...msg, text: msg.text + token } : msg
+          )
+        );
+      },
+      onComplete: (fullText) => {
+        geminiHistory.current.push({ role: 'model', parts: [{ text: fullText }] });
+        setStreamingId(null);
+        setBusy(false);
+      },
+      onError: (error) => {
+        setMessages((m) =>
+          m.map((msg) =>
+            msg.id === aiId
+              ? { ...msg, text: `⚠️ ${error}` }
+              : msg
+          )
+        );
+        setStreamingId(null);
+        setBusy(false);
+      },
+    });
   };
 
   return (
@@ -129,16 +105,11 @@ export default function Chat() {
       <section className="chat__main">
         {/* Connection Status + Suggestions */}
         <div className="chat-suggestions">
-          <div className={`ai-status-pill ${hasApiKey() ? 'ai-status--live' : 'ai-status--demo'}`}>
+          <div className="ai-status-pill ai-status--live">
             <span className="status-dot" />
-            {hasApiKey() ? 'Live AI (Gemini)' : 'Demo Mode'}
+            {isBackendLive ? 'FastAPI + Gemini Streaming' : 'Talyntra Evidence Engine'}
           </div>
-          {!hasApiKey() && (
-            <button className="chat-suggestion-chip" onClick={() => nav('/settings')}>
-              ⚙️ Connect API Key
-            </button>
-          )}
-          {history.slice(0, 3).map((item, idx) => (
+          {history.map((item, idx) => (
             <button
               key={idx}
               className="chat-suggestion-chip"
@@ -173,7 +144,7 @@ export default function Chat() {
             ref={inputRef}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Ask about your career, skills, interviews, or salary…"
+            placeholder="Ask about your Evidence Graph, time-decay retention, or learning ROI…"
             aria-label="Message"
             disabled={busy}
           />

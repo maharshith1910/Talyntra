@@ -4,7 +4,7 @@ import Sidebar from '../components/Sidebar';
 import Button from '../components/Button';
 import { useStore } from '../lib/store';
 import { askTalyntra, generateValidation, Message, QuestionnaireAnswer } from '../lib/mockAI';
-import { streamChat, buildProfileContext, hasApiKey, GeminiMessage } from '../lib/geminiAI';
+import { streamChat, buildProfileContext, GeminiMessage } from '../lib/geminiAI';
 
 interface QuestionDef {
   id: number;
@@ -223,33 +223,25 @@ export default function Questionnaire() {
 
     geminiHistory.current.push({ role: 'user', parts: [{ text: prompt }] });
 
-    if (hasApiKey()) {
-      const aiId = `a-${Date.now()}`;
-      setMessages((m) => [...m, { id: aiId, role: 'ai', text: '', timestamp: now }]);
-      const profileCtx = buildProfileContext(state.profile, state.skills);
+    const aiId = `a-${Date.now()}`;
+    setMessages((m) => [...m, { id: aiId, role: 'ai', text: '', timestamp: now }]);
+    const profileCtx = buildProfileContext(state.profile, state.skills);
 
-      await streamChat(prompt, profileCtx, geminiHistory.current.slice(0, -1), {
-        onToken: (token) => {
-          setMessages((m) => m.map((msg) => msg.id === aiId ? { ...msg, text: msg.text + token } : msg));
-        },
-        onComplete: (fullText) => {
-          geminiHistory.current.push({ role: 'model', parts: [{ text: fullText }] });
+    await streamChat(prompt, profileCtx, geminiHistory.current.slice(0, -1), {
+      onToken: (token) => {
+        setMessages((m) => m.map((msg) => msg.id === aiId ? { ...msg, text: msg.text + token } : msg));
+      },
+      onComplete: (fullText) => {
+        geminiHistory.current.push({ role: 'model', parts: [{ text: fullText }] });
+        setBusy(false);
+      },
+      onError: () => {
+        askTalyntra(prompt, state.profile).then((fallback) => {
+          setMessages((m) => m.map((msg) => msg.id === aiId ? { ...msg, text: fallback } : msg));
           setBusy(false);
-        },
-        onError: () => {
-          askTalyntra(prompt, state.profile).then((fallback) => {
-            setMessages((m) => m.map((msg) => msg.id === aiId ? { ...msg, text: fallback } : msg));
-            setBusy(false);
-          });
-        },
-      });
-    } else {
-      const reply = await askTalyntra(prompt, state.profile);
-      const aiMsg: Message = { id: `a-${Date.now()}`, role: 'ai', text: reply, timestamp: now };
-      setMessages((m) => [...m, aiMsg]);
-      geminiHistory.current.push({ role: 'model', parts: [{ text: reply }] });
-      setBusy(false);
-    }
+        });
+      },
+    });
   };
 
   return (
