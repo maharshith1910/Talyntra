@@ -412,3 +412,100 @@ button, input, textarea { font: inherit; color: inherit; }
   .details label { grid-template-columns: 1fr; gap: 4px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+/* ── Print Stylesheet for PDF Export ── */
+@media print {
+  @page {
+    margin: 15mm;
+    size: auto;
+  }
+  body, html, #root, .chat, .chat__main, .skills-container {
+    background: #ffffff !important;
+    color: #111827 !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+  .chat__side, .sidebar, .sidebar-logout-btn, button, .skills-header button, .skills-header .btn, .toast-banner, .consult-banner, .sidebar__quick-actions {
+    display: none !important;
+  }
+  .skills-pretitle {
+    color: #4b5563 !important;
+  }
+  .skills-title {
+    color: #111827 !important;
+    font-size: 24pt !important;
+  }
+  .skills-subtitle {
+    color: #374151 !important;
+  }
+  .glass {
+    background: #ffffff !important;
+    border: 1px solid #e5e7eb !important;
+    box-shadow: none !important;
+    color: #111827 !important;
+  }
+  .roadmap-ideology-card {
+    border: 1px solid #d1d5db !important;
+    background: #f9fafb !important;
+    margin-bottom: 20px !important;
+  }
+  .roadmap-ideology-card h3 {
+    color: #111827 !important;
+  }
+  .roadmap-ideology-card p {
+    color: #4b5563 !important;
+  }
+  .roadmap-layout {
+    display: block !important;
+  }
+  .timeline-col {
+    width: 100% !important;
+  }
+  .resources-col {
+    display: none !important;
+  }
+  .phase-card {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    margin-bottom: 24px !important;
+    border: 1px solid #d1d5db !important;
+    padding: 16px !important;
+    background: #ffffff !important;
+  }
+  .phase-badge {
+    background: #111827 !important;
+    color: #ffffff !important;
+  }
+  .phase-time {
+    color: #4b5563 !important;
+  }
+  .phase-title {
+    color: #111827 !important;
+  }
+  .phase-goal {
+    color: #374151 !important;
+  }
+  .checklist-item {
+    border: 1px solid #e5e7eb !important;
+    background: #f9fafb !important;
+    color: #111827 !important;
+  }
+  .check-text {
+    color: #111827 !important;
+  }
+  .check-box-square {
+    border: 1px solid #9ca3af !important;
+    color: #111827 !important;
+  }
+  .checklist-item--checked {
+    background: #f0fdf4 !important;
+    border-color: #86efac !important;
+  }
+  .checklist-item--checked .check-box-square {
+    background: #10b981 !important;
+    color: #ffffff !important;
+  }
+}
+

@@ -62,13 +62,29 @@ export async function streamChat(
   _conversationHistory: GeminiMessage[],
   callbacks: StreamCallbacks
 ): Promise<void> {
-  // 1. If remote backend is configured, stream via FastAPI service
+  // 1. If remote backend is configured, try streaming via FastAPI service
   if (isRemoteBackendConfigured()) {
+    let receivedTokens = false;
     try {
-      await streamChatRemotely(userMessage, 'Software Engineer', callbacks);
-      return;
+      await streamChatRemotely(userMessage, 'Software Engineer', {
+        onToken: (token) => {
+          receivedTokens = true;
+          callbacks.onToken(token);
+        },
+        onComplete: (fullText) => {
+          receivedTokens = true;
+          callbacks.onComplete(fullText);
+        },
+        onError: (err) => {
+          console.warn('FastAPI backend stream failed or offline:', err);
+        },
+      });
+
+      if (receivedTokens) {
+        return;
+      }
     } catch (err) {
-      console.warn('Remote chat stream failed, using offline fallback:', err);
+      console.warn('Remote stream call encountered error, falling back to local engine:', err);
     }
   }
 

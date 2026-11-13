@@ -5,7 +5,7 @@
 import { EvidenceGraph } from './evidenceGraph';
 import { Profile } from './mockAI';
 
-const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || '';
+const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:8000';
 
 export const isRemoteBackendConfigured = (): boolean => {
   return typeof API_BASE_URL === 'string' && API_BASE_URL.trim().length > 0;

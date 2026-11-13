@@ -25,8 +25,17 @@ export default function Roadmap() {
   const roadmap = state.roadmap;
 
   const handleExportPDF = () => {
+    const prevTitle = document.title;
+    const cleanName = (state.profile.fullName || 'Candidate').replace(/\s+/g, '_');
+    const targetRole = (state.profile.targetRole || 'Software_Engineer').replace(/\s+/g, '_');
+    document.title = `Talyntra_Career_Blueprint_${cleanName}_${targetRole}`;
     setExportedToast(true);
-    setTimeout(() => setExportedToast(false), 3000);
+
+    setTimeout(() => {
+      window.print();
+      document.title = prevTitle;
+      setTimeout(() => setExportedToast(false), 3500);
+    }, 150);
   };
 
   const handleToggle = (phase: number, act: RoadmapAction) => {

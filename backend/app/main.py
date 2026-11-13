@@ -11,6 +11,10 @@ import json
 import asyncio
 from datetime import datetime
 from typing import List, Optional, Dict, Any
+from dotenv import load_dotenv
+
+# Load server environment variables from .env if present
+load_dotenv()
 from fastapi import FastAPI, HTTPException, Header, Depends, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -34,7 +38,7 @@ app.add_middleware(
 )
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = "gemini-2.0-flash"
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 
 CAREER_SYSTEM_PROMPT = """You are Talyntra-AI, a premium career intelligence engine built for ambitious software engineers.
