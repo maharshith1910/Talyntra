@@ -20,7 +20,8 @@ CREATE TABLE IF NOT EXISTS public.resumes (
     file_name TEXT NOT NULL,
     storage_path TEXT NOT NULL,
     raw_text TEXT NOT NULL,
-    uploaded_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+    uploaded_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '30 days') NOT NULL
 );
 
 -- 3. Skills (Canonical skill taxonomy)
@@ -38,9 +39,9 @@ CREATE TABLE IF NOT EXISTS public.evidence (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     resume_id UUID REFERENCES public.resumes(id) ON DELETE SET NULL,
-    source_type TEXT NOT NULL CHECK (source_type IN ('resume_bullet', 'project_artifact', 'verified_task')),
+    source_type TEXT NOT NULL CHECK (source_type IN ('resume_bullet', 'project_artifact', 'verified_task', 'github_repo_lang', 'github_topic', 'github_merged_pr')),
     raw_text TEXT NOT NULL,                -- Verbatim quote from resume/deliverable
-    source_context TEXT NOT NULL,          -- e.g. "Software Engineer @ Acme (2023 - 2024)"
+    source_context TEXT NOT NULL,          -- e.g. "Software Engineer @ Acme (2023 - 2024)" or "GitHub Repo: user/repo"
     demonstrated_at DATE NOT NULL,         -- Date of achievement for time decay
     base_weight NUMERIC(3, 2) NOT NULL CHECK (base_weight BETWEEN 0.0 AND 1.0),
     is_verified BOOLEAN DEFAULT FALSE NOT NULL,
@@ -145,3 +146,44 @@ CREATE POLICY "Users access own confidence_scores"
 CREATE POLICY "Users access own roadmap"
     ON public.roadmap_tasks FOR ALL
     USING (auth.uid() = user_id);
+
+-- =============================================================================
+-- Supabase Storage Configuration (Resumes Bucket)
+-- =============================================================================
+
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+    'resumes',
+    'resumes',
+    false, -- Private bucket
+    10485760, -- Max 10MB limit
+    ARRAY['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword', 'text/plain']
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- Storage RLS: Users can only upload, read, and delete within their own folder
+CREATE POLICY "Users upload own resumes to storage"
+    ON storage.objects FOR INSERT
+    WITH CHECK (bucket_id = 'resumes' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+CREATE POLICY "Users read own resumes from storage"
+    ON storage.objects FOR SELECT
+    USING (bucket_id = 'resumes' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+CREATE POLICY "Users delete own resumes from storage"
+    ON storage.objects FOR DELETE
+    USING (bucket_id = 'resumes' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+-- Auto-Delete Stored Procedure (30-day Retention Policy)
+CREATE OR REPLACE FUNCTION public.delete_expired_resumes()
+RETURNS void AS $$
+BEGIN
+    -- Delete files from storage metadata
+    DELETE FROM storage.objects
+    WHERE bucket_id = 'resumes' AND created_at < NOW() - INTERVAL '30 days';
+
+    -- Delete expired records from resumes table
+    DELETE FROM public.resumes
+    WHERE expires_at < NOW();
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
