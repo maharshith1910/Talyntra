@@ -4,6 +4,7 @@ import Sidebar from '../components/Sidebar';
 import Button from '../components/Button';
 import { useStore } from '../lib/store';
 import { analyzeCV, SkillCategory, Skill } from '../lib/mockAI';
+import { mapGitHubDataToGraph, SAMPLE_GITHUB_REPOS, SAMPLE_GITHUB_PRS } from '../lib/githubEvidence';
 
 export default function Skills() {
   const nav = useNavigate();
@@ -13,6 +14,8 @@ export default function Skills() {
   const [filterCat, setFilterCat] = useState<SkillCategory | 'All' | 'Needs Proof'>('All');
   const [expandedSkillId, setExpandedSkillId] = useState<string | null>(null);
   const [sortByROI, setSortByROI] = useState(true);
+  const [githubSyncing, setGithubSyncing] = useState(false);
+  const [githubToast, setGithubToast] = useState<string | null>(null);
 
   const activeTab = params.get('tab') === 'missing' ? 'missing' : 'detected';
 
@@ -43,6 +46,65 @@ export default function Skills() {
     setExpandedSkillId((prev) => (prev === claimId ? null : claimId));
   };
 
+  const handleSyncGitHub = () => {
+    if (!state.evidenceGraph) return;
+    setGithubSyncing(true);
+
+    setTimeout(() => {
+      const syncResult = mapGitHubDataToGraph(
+        SAMPLE_GITHUB_REPOS,
+        SAMPLE_GITHUB_PRS,
+        state.evidenceGraph!
+      );
+
+      // Re-map claims to UI Skill objects
+      const updatedDetected: Skill[] = Object.values(syncResult.updatedGraph.skillClaims).map((claim) => {
+        const linked = claim.linkedEvidenceIds
+          .map((id) => syncResult.updatedGraph.evidenceNodes[id])
+          .filter(Boolean);
+
+        return {
+          name: claim.skillName,
+          category: claim.category,
+          claimedLevel: claim.claimedLevel,
+          evidencedLevel: claim.evidencedLevel,
+          proficiency: claim.confidenceScore || 0,
+          confidenceStatus: claim.confidenceStatus,
+          evidenceCount: linked.length,
+          daysElapsed: claim.daysElapsed,
+          timeDecayFactor: claim.timeDecayFactor,
+          lastDemonstratedDate: claim.lastDemonstratedDate,
+          reasoning: claim.reasoning,
+          claimId: claim.id,
+          linkedEvidence: linked,
+        };
+      });
+
+      const verifiedScores = updatedDetected
+        .filter((s) => s.confidenceStatus !== 'insufficient_evidence')
+        .map((s) => s.proficiency);
+
+      const newOverall = verifiedScores.length
+        ? Math.round(verifiedScores.reduce((a, b) => a + b, 0) / verifiedScores.length)
+        : 82;
+
+      setSkills({
+        ...skills!,
+        detectedSkills: updatedDetected,
+        overallScore: newOverall,
+        evidenceGraph: syncResult.updatedGraph,
+      });
+
+      const elevatedSummary = syncResult.elevatedSkills
+        .map((s) => `"${s.skillName}" (${s.prevScore ?? 'insufficient'} → ${s.newScore}%)`)
+        .join(', ');
+
+      setGithubToast(`⚡ GitHub Connected: 3 Repos & 2 Merged PRs linked! Elevated: ${elevatedSummary}`);
+      setGithubSyncing(false);
+      setTimeout(() => setGithubToast(null), 8000);
+    }, 600);
+  };
+
   return (
     <div className="chat">
       <Sidebar />
@@ -69,11 +131,27 @@ export default function Skills() {
                 </p>
               </div>
 
-              <div className="skills-score-badge glass">
-                <span className="score-val">{skills?.overallScore}%</span>
-                <span className="score-lbl">Evidence Score</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <Button variant="glass" onClick={handleSyncGitHub} disabled={githubSyncing}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+                  </svg>
+                  {githubSyncing ? 'Syncing GitHub…' : 'Sync GitHub Evidence'}
+                </Button>
+
+                <div className="skills-score-badge glass">
+                  <span className="score-val">{skills?.overallScore}%</span>
+                  <span className="score-lbl">Evidence Score</span>
+                </div>
               </div>
             </header>
+
+            {/* GitHub Sync Live Feedback Toast */}
+            {githubToast && (
+              <div className="toast-banner" style={{ background: 'rgba(16, 185, 129, 0.2)', borderColor: '#10b981', color: '#6ee7b7', marginBottom: 16 }}>
+                {githubToast}
+              </div>
+            )}
 
             {/* Tabs for Interface 2 vs Interface 2.2 */}
             <div className="tab-bar">

@@ -6,6 +6,9 @@ export type EvidenceSourceType =
   | 'resume_bullet'
   | 'project_artifact'
   | 'github_commit'
+  | 'github_repo_lang'
+  | 'github_topic'
+  | 'github_merged_pr'
   | 'credential'
   | 'verified_task';
 

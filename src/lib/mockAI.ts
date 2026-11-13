@@ -3,15 +3,17 @@
 // and Learning-ROI Gap Ranking (Roles Unlocked / Effort Hours)
 
 import {
+  evaluateSkillConfidence,
+  calculateLearningROI,
+  rankMissingSkillsByROI,
+} from './evidenceGraph.ts';
+import type {
   EvidenceGraph,
   EvidenceNode,
   SkillClaim,
   LearningROI,
   SkillCategory,
-  evaluateSkillConfidence,
-  calculateLearningROI,
-  rankMissingSkillsByROI,
-} from './evidenceGraph';
+} from './evidenceGraph.ts';
 
 export type { SkillCategory };
 
@@ -363,8 +365,8 @@ function buildMockEvidenceGraph(roleType: string, profile: Profile): EvidenceGra
   const overallMatchScore =
     verifiedClaims.length > 0
       ? Math.round(
-          verifiedClaims.reduce((sum, c) => sum + (c.confidenceScore || 0), 0) / verifiedClaims.length
-        )
+        verifiedClaims.reduce((sum, c) => sum + (c.confidenceScore || 0), 0) / verifiedClaims.length
+      )
       : 75;
 
   return {
@@ -374,6 +376,14 @@ function buildMockEvidenceGraph(roleType: string, profile: Profile): EvidenceGra
     overallMatchScore,
     overallReasoning: `Calibrated from ${Object.keys(evidenceNodes).length} evidence nodes across ${Object.keys(skillClaims).length} skill claims for ${roleName}.`,
   };
+}
+
+export function seedSoftwareEngineerEvidenceGraph(): EvidenceGraph {
+  return buildMockEvidenceGraph('fullstack', {
+    fullName: 'Alex Morgan',
+    targetRole: 'Software Engineer',
+    experience: '3+ years',
+  });
 }
 
 export async function analyzeCV(profile: Profile): Promise<SkillAnalysis> {
@@ -420,10 +430,10 @@ export async function analyzeCV(profile: Profile): Promise<SkillAnalysis> {
     roleType === 'frontend'
       ? 'Senior Frontend Engineer / UI Specialist'
       : roleType === 'backend'
-      ? 'Senior Backend & Distributed Systems Specialist'
-      : roleType === 'data'
-      ? 'Data & Applied Machine Learning Specialist'
-      : profile.targetRole || 'Full Stack Software Professional';
+        ? 'Senior Backend & Distributed Systems Specialist'
+        : roleType === 'data'
+          ? 'Data & Applied Machine Learning Specialist'
+          : profile.targetRole || 'Full Stack Software Professional';
 
   return {
     roleMatchTitle,
