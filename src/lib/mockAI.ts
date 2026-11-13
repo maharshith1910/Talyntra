@@ -18,10 +18,13 @@ export type { SkillCategory };
 export type Skill = {
   name: string;
   category: SkillCategory;
+  claimedLevel: number;
+  evidencedLevel: number | null;
   proficiency: number; // 0 - 100 (derived from confidence score, or 0 if insufficient)
   confidenceStatus: 'verified' | 'moderate' | 'weak' | 'insufficient_evidence';
   evidenceCount: number;
   timeDecayFactor: number; // 0.0 - 1.0 retention
+  daysElapsed: number;
   lastDemonstratedDate: string | null;
   reasoning: string;
   claimId: string;
@@ -151,17 +154,21 @@ function buildMockEvidenceGraph(roleType: string, profile: Profile): EvidenceGra
     skillName: string,
     category: SkillCategory,
     evidenceIds: string[],
-    halfLifeMonths: number
+    halfLifeMonths: number,
+    claimedLevel: number = 85
   ) => {
     const linked = evidenceIds.map((eid) => evidenceNodes[eid]).filter(Boolean);
-    const evalRes = evaluateSkillConfidence(skillName, category, linked, halfLifeMonths);
+    const evalRes = evaluateSkillConfidence(skillName, category, linked, halfLifeMonths, undefined, claimedLevel);
 
     skillClaims[id] = {
       id,
       skillName,
       category,
+      claimedLevel: evalRes.claimedLevel,
+      evidencedLevel: evalRes.evidencedLevel,
       linkedEvidenceIds: evidenceIds,
       halfLifeMonths,
+      daysElapsed: evalRes.daysElapsed,
       confidenceScore: evalRes.confidenceScore,
       confidenceStatus: evalRes.confidenceStatus,
       timeDecayFactor: evalRes.timeDecayFactor,
@@ -379,10 +386,13 @@ export async function analyzeCV(profile: Profile): Promise<SkillAnalysis> {
     return {
       name: claim.skillName,
       category: claim.category,
+      claimedLevel: claim.claimedLevel,
+      evidencedLevel: claim.evidencedLevel,
       proficiency: claim.confidenceScore ?? 0,
       confidenceStatus: claim.confidenceStatus,
       evidenceCount: linked.length,
       timeDecayFactor: claim.timeDecayFactor,
+      daysElapsed: claim.daysElapsed,
       lastDemonstratedDate: claim.lastDemonstratedDate,
       reasoning: claim.reasoning,
       claimId: claim.id,

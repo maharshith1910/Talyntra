@@ -27,8 +27,11 @@ export interface SkillClaim {
   id: string;
   skillName: string;
   category: SkillCategory;
+  claimedLevel: number; // Self-claimed / stated level (0 - 100)
+  evidencedLevel: number | null; // Raw evidence level before or after decay
   linkedEvidenceIds: string[];
   halfLifeMonths: number; // 24 for fast-moving tech, 48 for fundamentals
+  daysElapsed: number;
   confidenceScore: number | null; // 0-100 or null if insufficient
   confidenceStatus: ConfidenceStatus;
   timeDecayFactor: number; // 0.0 - 1.0 (recency retention of most recent evidence)
@@ -80,6 +83,19 @@ export function calculateMonthsElapsed(
 }
 
 /**
+ * Calculates days elapsed between evidence timestamp and reference date.
+ */
+export function calculateDaysElapsed(
+  evidenceDateStr: string,
+  referenceDate: Date = new Date()
+): number {
+  const evDate = new Date(evidenceDateStr);
+  if (isNaN(evDate.getTime())) return 365;
+  const diffTime = Math.abs(referenceDate.getTime() - evDate.getTime());
+  return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+}
+
+/**
  * Computes exponential time-decay factor: e^(-lambda * deltaT)
  * where lambda = ln(2) / halfLifeMonths.
  */
@@ -100,19 +116,26 @@ export function evaluateSkillConfidence(
   category: SkillCategory,
   evidenceList: EvidenceNode[],
   halfLifeMonths: number = HALF_LIFE_MAP[category],
-  referenceDate: Date = new Date()
+  referenceDate: Date = new Date(),
+  claimedLevel: number = 85
 ): {
+  claimedLevel: number;
+  evidencedLevel: number | null;
   confidenceScore: number | null;
   confidenceStatus: ConfidenceStatus;
   timeDecayFactor: number;
+  daysElapsed: number;
   lastDemonstratedDate: string | null;
   reasoning: string;
 } {
   if (!evidenceList || evidenceList.length === 0) {
     return {
+      claimedLevel,
+      evidencedLevel: null,
       confidenceScore: null,
       confidenceStatus: 'insufficient_evidence',
       timeDecayFactor: 0,
+      daysElapsed: 0,
       lastDemonstratedDate: null,
       reasoning: `Insufficient evidence: No documented projects, achievements, or credentials found for "${skillName}".`,
     };
@@ -142,13 +165,13 @@ export function evaluateSkillConfidence(
 
   // Time decay of the most recent item represents recency retention
   const latestMonths = mostRecentDateStr ? calculateMonthsElapsed(mostRecentDateStr, referenceDate) : 24;
+  const latestDays = mostRecentDateStr ? calculateDaysElapsed(mostRecentDateStr, referenceDate) : 730;
   const latestDecayFactor = computeTimeDecay(latestMonths, halfLifeMonths);
 
   // Aggregate independent evidence with diminishing returns:
   // P(competent) = 1 - product(1 - 0.5 * effectiveWeight_i)
   let unreliability = 1.0;
   for (const c of contributions) {
-    // Verified tasks and quantified bullets carry higher conversion
     const factor = c.node.verified ? 0.65 : 0.5;
     unreliability *= Math.max(0.05, 1.0 - factor * c.effectiveWeight);
   }
@@ -158,11 +181,14 @@ export function evaluateSkillConfidence(
   // Enforce Rule 5: If rawScore < 35, classify as insufficient evidence
   if (rawScore < 35) {
     return {
+      claimedLevel,
+      evidencedLevel: rawScore,
       confidenceScore: null,
       confidenceStatus: 'insufficient_evidence',
       timeDecayFactor: Number(latestDecayFactor.toFixed(2)),
+      daysElapsed: latestDays,
       lastDemonstratedDate: mostRecentDateStr,
-      reasoning: `Insufficient evidence: Found ${evidenceList.length} weak/dated citation(s) for "${skillName}" (decayed weight below 35% threshold). Demonstrable proof or refreshed artifact required.`,
+      reasoning: `Insufficient evidence: Found ${evidenceList.length} weak or dated citation(s) for "${skillName}" (decayed score of ${rawScore}% is below the 35% confidence threshold). Demonstrable proof or refreshed artifact required.`,
     };
   }
 
@@ -172,12 +198,15 @@ export function evaluateSkillConfidence(
   const bulletsCount = evidenceList.filter((e) => e.sourceType === 'resume_bullet').length;
   const verifiedCount = evidenceList.filter((e) => e.verified).length;
 
-  const reasoning = `Computed from ${evidenceList.length} evidence citation(s) (${bulletsCount} resume bullet(s), ${verifiedCount} verified). Last demonstrated ~${latestMonths} mo. ago (${Math.round(latestDecayFactor * 100)}% retention across ${halfLifeMonths}-mo. half-life).`;
+  const reasoning = `Computed from ${evidenceList.length} evidence citation(s) (${bulletsCount} resume bullet(s), ${verifiedCount} verified). Last demonstrated ~${latestMonths} mo. ago (${Math.round(latestDecayFactor * 100)}% retention across ${halfLifeMonths}-mo. half-life). Evidenced level: ${rawScore}% vs. Claimed: ${claimedLevel}%.`;
 
   return {
+    claimedLevel,
+    evidencedLevel: rawScore,
     confidenceScore: rawScore,
     confidenceStatus,
     timeDecayFactor: Number(latestDecayFactor.toFixed(2)),
+    daysElapsed: latestDays,
     lastDemonstratedDate: mostRecentDateStr,
     reasoning,
   };
@@ -269,8 +298,11 @@ export function addVerifiedTaskToGraph(
       id: claimKey,
       skillName,
       category: 'Technical',
+      claimedLevel: 80,
+      evidencedLevel: null,
       linkedEvidenceIds: [evidenceId],
       halfLifeMonths: 24,
+      daysElapsed: 0,
       confidenceScore: null,
       confidenceStatus: 'insufficient_evidence',
       timeDecayFactor: 1.0,
@@ -289,14 +321,18 @@ export function addVerifiedTaskToGraph(
     targetClaim.category,
     linkedNodes,
     targetClaim.halfLifeMonths,
-    referenceDate
+    referenceDate,
+    targetClaim.claimedLevel
   );
 
   const updatedClaim: SkillClaim = {
     ...targetClaim,
+    claimedLevel: evalResult.claimedLevel,
+    evidencedLevel: evalResult.evidencedLevel,
     confidenceScore: evalResult.confidenceScore,
     confidenceStatus: evalResult.confidenceStatus,
     timeDecayFactor: evalResult.timeDecayFactor,
+    daysElapsed: evalResult.daysElapsed,
     lastDemonstratedDate: evalResult.lastDemonstratedDate,
     reasoning: evalResult.reasoning,
   };

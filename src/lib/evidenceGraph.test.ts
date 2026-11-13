@@ -3,6 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   computeTimeDecay,
+  calculateDaysElapsed,
   evaluateSkillConfidence,
   calculateLearningROI,
   rankMissingSkillsByROI,
@@ -23,14 +24,22 @@ test('computeTimeDecay respects exponential half-life', () => {
   assert.ok(Math.abs(quarterVal - 0.25) < 0.001);
 });
 
+test('calculateDaysElapsed calculates calendar days difference', () => {
+  const refDate = new Date('2026-01-15');
+  const days = calculateDaysElapsed('2026-01-05', refDate);
+  assert.equal(days, 10);
+});
+
 test('evaluateSkillConfidence returns insufficient_evidence when evidence is empty (Rule 5)', () => {
-  const result = evaluateSkillConfidence('Kubernetes', 'Technical', []);
+  const result = evaluateSkillConfidence('Kubernetes', 'Technical', [], 24, new Date(), 90);
   assert.equal(result.confidenceStatus, 'insufficient_evidence');
   assert.equal(result.confidenceScore, null);
+  assert.equal(result.claimedLevel, 90);
+  assert.equal(result.evidencedLevel, null);
   assert.match(result.reasoning, /insufficient evidence/i);
 });
 
-test('evaluateSkillConfidence returns insufficient_evidence when single evidence is too dated/weak', () => {
+test('evaluateSkillConfidence returns insufficient_evidence when evidence is too dated/weak', () => {
   const anchorDate = new Date('2026-01-01');
   const datedEvidence: EvidenceNode = {
     id: 'ev-1',
@@ -42,12 +51,14 @@ test('evaluateSkillConfidence returns insufficient_evidence when single evidence
     verified: false,
   };
 
-  const result = evaluateSkillConfidence('Docker', 'Technical', [datedEvidence], 24, anchorDate);
+  const result = evaluateSkillConfidence('Docker', 'Technical', [datedEvidence], 24, anchorDate, 80);
   assert.equal(result.confidenceStatus, 'insufficient_evidence');
   assert.equal(result.confidenceScore, null);
+  assert.equal(result.claimedLevel, 80);
+  assert.ok(result.evidencedLevel !== null && result.evidencedLevel < 35);
 });
 
-test('evaluateSkillConfidence produces high verified score for fresh quantified evidence', () => {
+test('evaluateSkillConfidence produces high verified score with claimed vs evidenced levels', () => {
   const anchorDate = new Date('2026-01-01');
   const freshEvidence: EvidenceNode[] = [
     {
@@ -70,10 +81,12 @@ test('evaluateSkillConfidence produces high verified score for fresh quantified 
     },
   ];
 
-  const result = evaluateSkillConfidence('React', 'Technical', freshEvidence, 24, anchorDate);
+  const result = evaluateSkillConfidence('React', 'Technical', freshEvidence, 24, anchorDate, 90);
   assert.equal(result.confidenceStatus, 'verified');
+  assert.equal(result.claimedLevel, 90);
   assert.ok(result.confidenceScore !== null && result.confidenceScore >= 75);
-  assert.ok(result.reasoning.includes('resume bullet'));
+  assert.equal(result.evidencedLevel, result.confidenceScore);
+  assert.ok(result.reasoning.includes('Evidenced level:'));
 });
 
 test('calculateLearningROI computes roles unlocked per effort hour', () => {
@@ -113,8 +126,11 @@ test('addVerifiedTaskToGraph feeds back into evidence graph and updates skill co
         id: 'claim_testing',
         skillName: 'Automated Testing',
         category: 'Technical',
+        claimedLevel: 80,
+        evidencedLevel: null,
         linkedEvidenceIds: [],
         halfLifeMonths: 24,
+        daysElapsed: 0,
         confidenceScore: null,
         confidenceStatus: 'insufficient_evidence',
         timeDecayFactor: 0,
@@ -139,6 +155,7 @@ test('addVerifiedTaskToGraph feeds back into evidence graph and updates skill co
   assert.ok(updatedClaim);
   assert.equal(updatedClaim.linkedEvidenceIds.length, 1);
   assert.ok(updatedClaim.confidenceScore !== null && updatedClaim.confidenceScore > 40);
+  assert.equal(updatedClaim.claimedLevel, 80);
   assert.ok(updatedGraph.overallMatchScore !== null);
   assert.ok(Object.keys(updatedGraph.evidenceNodes).length === 1);
 });

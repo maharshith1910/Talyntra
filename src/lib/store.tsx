@@ -177,10 +177,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             return {
               name: claim.skillName,
               category: claim.category,
+              claimedLevel: claim.claimedLevel,
+              evidencedLevel: claim.evidencedLevel,
               proficiency: claim.confidenceScore ?? 0,
               confidenceStatus: claim.confidenceStatus,
               evidenceCount: linked.length,
               timeDecayFactor: claim.timeDecayFactor,
+              daysElapsed: claim.daysElapsed,
               lastDemonstratedDate: claim.lastDemonstratedDate,
               reasoning: claim.reasoning,
               claimId: claim.id,
