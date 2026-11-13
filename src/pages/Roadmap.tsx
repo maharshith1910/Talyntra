@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Button from '../components/Button';
 import { useStore } from '../lib/store';
-import { CURATED_RESOURCES, generateRoadmap, RoadmapPhase } from '../lib/mockAI';
+import { CURATED_RESOURCES, generateRoadmap, RoadmapPhase, RoadmapAction } from '../lib/mockAI';
 
 export default function Roadmap() {
   const nav = useNavigate();
   const { state, setRoadmap, toggleRoadmapAction } = useStore();
   const [loading, setLoading] = useState(!state.roadmap);
   const [exportedToast, setExportedToast] = useState(false);
+  const [feedbackFeedbackSkill, setFeedbackSkill] = useState<string | null>(null);
 
   useEffect(() => {
     if (!state.roadmap) {
@@ -28,6 +29,19 @@ export default function Roadmap() {
     setTimeout(() => setExportedToast(false), 3000);
   };
 
+  const handleToggle = (phase: number, act: RoadmapAction) => {
+    toggleRoadmapAction(phase, act.id);
+    if (!act.completed && act.verifiesSkill) {
+      setFeedbackSkill(act.verifiesSkill);
+      setTimeout(() => setFeedbackSkill(null), 4000);
+    }
+  };
+
+  // Count verified task nodes in Evidence Graph
+  const verifiedTasksCount = state.evidenceGraph
+    ? Object.values(state.evidenceGraph.evidenceNodes).filter((n) => n.sourceType === 'verified_task').length
+    : 0;
+
   return (
     <div className="chat">
       <Sidebar />
@@ -37,7 +51,7 @@ export default function Roadmap() {
           <div className="center" style={{ minHeight: '60vh' }}>
             <div className="spinner" />
             <h2 style={{ marginTop: 20 }}>Synthesizing Gap-Closing Ideology…</h2>
-            <p style={{ color: 'var(--muted)' }}>Formulating personalized milestones and resource tracks</p>
+            <p style={{ color: 'var(--muted)' }}>Formulating personalized milestones with automated evidence-graph feedback</p>
           </div>
         ) : (
           <div className="skills-container page-enter">
@@ -64,6 +78,13 @@ export default function Roadmap() {
               </div>
             </header>
 
+            {/* Real-time Feedback Toast */}
+            {feedbackFeedbackSkill && (
+              <div className="toast-banner" style={{ background: 'rgba(16,185,129,0.2)', borderColor: '#10b981', color: '#6ee7b7' }}>
+                ⚡ Auto-Verification Active: Generated verified evidence node for <strong>"{feedbackFeedbackSkill}"</strong>. Confidence score updated live in Evidence Graph!
+              </div>
+            )}
+
             {exportedToast && (
               <div className="toast-banner">
                 ✓ Roadmap export generated: <strong>Talyntra_Career_Blueprint_{state.profile.fullName.replace(/\s+/g, '_')}.pdf</strong>
@@ -73,13 +94,18 @@ export default function Roadmap() {
             {/* Core Ideology Banner */}
             <section className="glass roadmap-ideology-card">
               <div className="ideology-icon">💡</div>
-              <div>
-                <h3>The Talyntra Ideology: Bridge Through Proof of Execution</h3>
-                <p>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                  <h3>The Talyntra Ideology: Bridge Through Proof of Execution</h3>
+                  <span className="ai-status-pill ai-status--live" style={{ fontSize: 11 }}>
+                    <span className="status-dot" />
+                    Evidence Graph Sync Active ({verifiedTasksCount} Tasks Verified)
+                  </span>
+                </div>
+                <p style={{ marginTop: 6 }}>
                   Transitioning to senior tiers is not about collecting passive certifications; it requires{' '}
-                  <em>verifiable artifacts of competence</em>. This roadmap is structured into 4 distinct phases
-                  that systematically eliminate your vulnerabilities through deliberate building, public architecture
-                  critique, and rigorous interview calibration.
+                  <em>verifiable artifacts of competence</em>. Completing milestones below generates high-confidence
+                  evidence citations with zero recency decay, automatically elevating your Evidence Graph scores.
                 </p>
               </div>
             </section>
@@ -124,7 +150,7 @@ export default function Roadmap() {
                           <label
                             key={act.id}
                             className={`checklist-item ${act.completed ? 'checklist-item--checked' : ''}`}
-                            onClick={() => toggleRoadmapAction(phase.phase, act.id)}
+                            onClick={() => handleToggle(phase.phase, act)}
                           >
                             <input
                               type="checkbox"
@@ -133,7 +159,15 @@ export default function Roadmap() {
                               style={{ display: 'none' }}
                             />
                             <span className="check-box-square">{act.completed ? '✓' : ''}</span>
-                            <span className="check-text">{act.text}</span>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                              <span className="check-text">{act.text}</span>
+                              {act.verifiesSkill && (
+                                <span style={{ fontSize: 11, color: act.completed ? '#34d399' : 'var(--accent-cyan)' }}>
+                                  {act.completed ? '✓ Verified in Graph: ' : '⚡ Auto-verifies: '}
+                                  <strong>{act.verifiesSkill}</strong>
+                                </span>
+                              )}
+                            </div>
                           </label>
                         ))}
                       </div>
@@ -172,9 +206,9 @@ export default function Roadmap() {
 
                 {/* Final Chatbot CTA */}
                 <div className="glass consult-banner">
-                  <h4>Have questions about your roadmap?</h4>
-                  <p>Our conversational AI is ready to advise you on any phase or architectural challenge.</p>
-                  <Button onClick={() => nav('/chat')}>Chat with Talyntra AI →</Button>
+                  <h4>Inspect your updated Evidence Score?</h4>
+                  <p>Check how your completed milestones elevated your profile confidence.</p>
+                  <Button variant="glass" onClick={() => nav('/skills')}>View Updated Skills (2.0) →</Button>
                 </div>
               </div>
             </div>
@@ -184,4 +218,3 @@ export default function Roadmap() {
     </div>
   );
 }
-
