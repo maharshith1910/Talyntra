@@ -583,6 +583,42 @@ def verify_task_endpoint(payload: VerifyTaskRequest):
 
     return {"success": False, "message": "Target skill claim not found in graph."}
 
+# --- Career Intelligence Heuristic Generator ---
+def generate_career_response(message: str, target_role: str = "Software Engineer") -> str:
+    msg_lower = message.lower()
+    if "jpmc" in msg_lower or "jpmorgan" in msg_lower or "investment bank" in msg_lower or "bank" in msg_lower:
+        return (
+            "To secure software engineering roles at **JPMorgan Chase (JPMC)**, financial institutions evaluate candidates on specific high-rigor competencies:\n\n"
+            "1. **Distributed Systems & Low-Latency Architecture**: JPMC transactions require high resilience, message queue guarantees (Kafka), and sub-50ms p99 response times.\n"
+            "2. **Relational Database Integrity & ACID**: Strong proficiency in PostgreSQL/Oracle, transaction isolation levels, indexing, and complex query tuning.\n"
+            "3. **Rigorous Automated Testing**: High coverage (>85%) with unit, integration, and contract tests to safeguard financial flows.\n"
+            "4. **Enterprise CI/CD & Security**: Secure coding standards (OWASP), containerization (Docker/Kubernetes), and clean microservices boundaries.\n\n"
+            "In your current Talyntra Evidence Graph, your **TypeScript (86%)** and **REST APIs (82%)** are verified. To increase your callback rate for JPMC, focus on closing the **System Design & Distributed Scalability** milestone on your Roadmap!"
+        )
+    elif "gap" in msg_lower or "system design" in msg_lower or "roi" in msg_lower:
+        return (
+            "In our Evidence Graph for **Software Engineer**, your highest-ROI gap is **System Design & Scalability Principles** (unlocking ~7.1 roles per 10 hours invested).\n\n"
+            "Because your resume only listed this as a keyword without concrete horizontal partitioning or caching deliverables, the engine marked it **'insufficient evidence'**.\n\n"
+            "Completing the Phase 2 roadmap task (architecting a distributed caching showcase) will auto-verify this skill and immediately elevate your score to 85%."
+        )
+    elif "evidence" in msg_lower or "score" in msg_lower or "decay" in msg_lower:
+        return (
+            "Talyntra calculates confidence using **exponential time-decay half-life math** (24 months for technical frameworks, 48 months for CS fundamentals).\n\n"
+            "Skills with verified production metrics (like your TypeScript migration) retain high confidence, whereas dated mentions with no project context return **'insufficient evidence'** instead of fabricated scores."
+        )
+    elif "hi" in msg_lower or "hello" in msg_lower or "hey" in msg_lower:
+        return (
+            f"Hello! I am Talyntra's career intelligence engine.\n\n"
+            f"I have analyzed your Evidence Graph against benchmark standards for **{target_role}**.\n\n"
+            "Ask me how to close specific skill gaps, maximize your Learning-ROI, or prepare for technical interviews at target companies!"
+        )
+    else:
+        return (
+            f"Regarding your preparation for **{target_role}**:\n\n"
+            "Your Evidence Graph currently displays strong verified aptitude in **TypeScript (86%)** and **REST APIs (82%)**.\n\n"
+            "To command top-band offers, focus on closing the **System Design** milestone. What specific area of architecture or interview prep would you like to explore?"
+        )
+
 @app.post("/api/v1/chat/stream")
 async def protected_chat_stream(payload: ChatStreamRequest):
     """
@@ -603,49 +639,59 @@ async def protected_chat_stream(payload: ChatStreamRequest):
         async def sse_proxy():
             async with httpx.AsyncClient(timeout=30.0) as client:
                 url = f"{GEMINI_BASE_URL}/{GEMINI_MODEL}:streamGenerateContent?alt=sse&key={GEMINI_API_KEY}"
-                async with client.stream("POST", url, json={"contents": contents}) as response:
-                    async for line in response.aiter_lines():
-                        if line.startswith("data: "):
-                            json_str = line[6:].strip()
-                            if json_str and json_str != "[DONE]":
-                                try:
-                                    data = json.loads(json_str)
-                                    text_token = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-                                    if text_token:
-                                        yield f"data: {json.dumps({'token': text_token})}\n\n"
-                                except Exception:
-                                    pass
+                try:
+                    async with client.stream("POST", url, json={"contents": contents}) as response:
+                        if response.status_code != 200:
+                            err_content = await response.aread()
+                            err_msg = "Unknown Gemini API error"
+                            try:
+                                err_json = json.loads(err_content.decode())
+                                err_msg = err_json.get("error", {}).get("message", err_content.decode()[:200])
+                            except Exception:
+                                err_msg = err_content.decode()[:200]
+
+                            error_notice = (
+                                f"⚠️ **Gemini API Error ({response.status_code})**: {err_msg}\n\n"
+                                f"*Note: Google Gemini API keys typically start with `AIzaSy...` from https://aistudio.google.com/app/apikey. "
+                                f"Talyntra career intelligence response provided below:*\n\n---\n\n"
+                            )
+                            yield f"data: {json.dumps({'token': error_notice})}\n\n"
+
+                            reply = generate_career_response(payload.message, payload.target_role or "Software Engineer")
+                            words = reply.split(" ")
+                            for i, w in enumerate(words):
+                                yield f"data: {json.dumps({'token': ('' if i == 0 else ' ') + w})}\n\n"
+                                await asyncio.sleep(0.02)
+                            yield "data: [DONE]\n\n"
+                            return
+
+                        async for line in response.aiter_lines():
+                            if line.startswith("data: "):
+                                json_str = line[6:].strip()
+                                if json_str and json_str != "[DONE]":
+                                    try:
+                                        data = json.loads(json_str)
+                                        text_token = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                                        if text_token:
+                                            yield f"data: {json.dumps({'token': text_token})}\n\n"
+                                    except Exception:
+                                        pass
+                except Exception as ex:
+                    yield f"data: {json.dumps({'token': f'⚠️ Connection Error: {str(ex)}'})}\n\n"
+                    reply = generate_career_response(payload.message, payload.target_role or "Software Engineer")
+                    yield f"data: {json.dumps({'token': reply})}\n\n"
+
             yield "data: [DONE]\n\n"
 
         return StreamingResponse(sse_proxy(), media_type="text/event-stream")
 
     # Offline intelligent fallback streaming if GEMINI_API_KEY is not set in env
     async def fallback_generator():
-        prefix = f"Regarding {payload.target_role}: "
-        yield f"data: {json.dumps({'token': prefix})}\n\n"
-        await asyncio.sleep(0.05)
-
-        msg_lower = payload.message.lower()
-        if "gap" in msg_lower or "system design" in msg_lower or "roi" in msg_lower:
-            tokens = [
-                "In our Evidence Graph for **Software Engineer**, your highest-ROI gap is **System Design & Scalability Principles** (unlocking ~7.1 roles per 10 hours invested).\n\n",
-                "Because your resume only listed this as a keyword without concrete horizontal partitioning or caching deliverables, the engine marked it **'insufficient evidence'**.\n\n",
-                "Completing the Phase 2 roadmap task (architecting a distributed caching showcase) will auto-verify this skill and immediately elevate your score to 85%."
-            ]
-        elif "evidence" in msg_lower or "score" in msg_lower or "decay" in msg_lower:
-            tokens = [
-                "Talyntra calculates confidence using **exponential time-decay half-life math** (24 months for technical frameworks, 48 months for CS fundamentals).\n\n",
-                "Skills with verified production metrics (like your TypeScript migration) retain high confidence, whereas dated mentions with no project context return **'insufficient evidence'** instead of fabricated scores."
-            ]
-        else:
-            tokens = [
-                "Your Evidence Graph currently displays strong verified aptitude in **TypeScript (86%)** and **REST APIs (82%)**.\n\n",
-                "To command top-band Software Engineer offers, focus on closing the **System Design** milestone. What area of architecture would you like to practice?"
-            ]
-
-        for token in tokens:
-            yield f"data: {json.dumps({'token': token})}\n\n"
-            await asyncio.sleep(0.08)
+        reply = generate_career_response(payload.message, payload.target_role or "Software Engineer")
+        words = reply.split(" ")
+        for i, w in enumerate(words):
+            yield f"data: {json.dumps({'token': ('' if i == 0 else ' ') + w})}\n\n"
+            await asyncio.sleep(0.02)
 
         yield "data: [DONE]\n\n"
 

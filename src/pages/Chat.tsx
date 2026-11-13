@@ -80,6 +80,13 @@ export default function Chat() {
         );
       },
       onComplete: (fullText) => {
+        if (!fullText.trim()) {
+          const fallback =
+            "I couldn't retrieve a response from the language model. Please verify your GEMINI_API_KEY in backend/.env.";
+          setMessages((m) =>
+            m.map((msg) => (msg.id === aiId ? { ...msg, text: fallback } : msg))
+          );
+        }
         geminiHistory.current.push({ role: 'model', parts: [{ text: fullText }] });
         setStreamingId(null);
         setBusy(false);
