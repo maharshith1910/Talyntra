@@ -1,152 +1,147 @@
--- Talyntra Supabase Schema: Evidence Graph, Vector Search, and Multi-Tenancy
--- Enable pgvector extension for semantic role benchmarking & skill matching
-CREATE EXTENSION IF NOT EXISTS vector;
+-- Talyntra Supabase Schema: Single Vertical Slice (Software Engineer)
+-- Tables: profiles, resumes, skills, claims, evidence, claim_evidence, confidence_scores, roadmap_tasks
+-- All user tables enforce Row-Level Security (RLS) so users only access their own rows.
 
--- 1. User Profiles (Extends Supabase auth.users)
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 1. Profiles (1:1 with Supabase auth.users)
 CREATE TABLE IF NOT EXISTS public.profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    email TEXT NOT NULL,
     full_name TEXT NOT NULL,
-    target_role TEXT NOT NULL,
-    experience_level TEXT NOT NULL,
-    location TEXT,
-    linkedin_url TEXT,
-    created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW()) NOT NULL,
-    updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW()) NOT NULL
+    target_role TEXT NOT NULL DEFAULT 'Software Engineer',
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
--- 2. Stored Resumes / CV Artifacts
-CREATE TABLE IF NOT EXISTS public.resume_artifacts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+-- 2. Resumes
+CREATE TABLE IF NOT EXISTS public.resumes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-    storage_path TEXT NOT NULL, -- Path in Supabase Storage bucket 'resumes'
     file_name TEXT NOT NULL,
-    file_size_bytes BIGINT NOT NULL,
-    raw_extracted_text TEXT,
-    parsed_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW()) NOT NULL
-);
-
--- 3. Evidence Nodes (Atomic verifiable proof items)
-CREATE TYPE evidence_source_type AS ENUM (
-    'resume_bullet',
-    'project_artifact',
-    'github_commit',
-    'credential',
-    'verified_task'
-);
-
-CREATE TABLE IF NOT EXISTS public.evidence_nodes (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-    resume_artifact_id UUID REFERENCES public.resume_artifacts(id) ON DELETE SET NULL,
-    source_type evidence_source_type NOT NULL,
+    storage_path TEXT NOT NULL,
     raw_text TEXT NOT NULL,
-    source_context TEXT NOT NULL,
-    demonstrated_date DATE NOT NULL,
-    base_weight NUMERIC(3, 2) NOT NULL CHECK (base_weight >= 0.0 AND base_weight <= 1.0),
+    uploaded_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+-- 3. Skills (Canonical skill taxonomy)
+CREATE TABLE IF NOT EXISTS public.skills (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    slug TEXT UNIQUE NOT NULL,             -- e.g. 'automated-testing'
+    name TEXT NOT NULL,                    -- e.g. 'Automated Testing'
+    category TEXT NOT NULL CHECK (category IN ('Technical', 'Soft', 'Domain')),
+    default_half_life_days INT NOT NULL DEFAULT 730, -- 730 (2 yrs) or 1460 (4 yrs)
+    benchmark_weight NUMERIC(3, 2) NOT NULL DEFAULT 1.00
+);
+
+-- 4. Evidence (Atomic verifiable proof items)
+CREATE TABLE IF NOT EXISTS public.evidence (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    resume_id UUID REFERENCES public.resumes(id) ON DELETE SET NULL,
+    source_type TEXT NOT NULL CHECK (source_type IN ('resume_bullet', 'project_artifact', 'verified_task')),
+    raw_text TEXT NOT NULL,                -- Verbatim quote from resume/deliverable
+    source_context TEXT NOT NULL,          -- e.g. "Software Engineer @ Acme (2023 - 2024)"
+    demonstrated_at DATE NOT NULL,         -- Date of achievement for time decay
+    base_weight NUMERIC(3, 2) NOT NULL CHECK (base_weight BETWEEN 0.0 AND 1.0),
     is_verified BOOLEAN DEFAULT FALSE NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW()) NOT NULL
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
--- 4. Skill Claims
-CREATE TYPE skill_category AS ENUM ('Technical', 'Soft', 'Domain');
-CREATE TYPE confidence_status AS ENUM ('verified', 'moderate', 'weak', 'insufficient_evidence');
-
-CREATE TABLE IF NOT EXISTS public.skill_claims (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+-- 5. Claims (User claim of possessing a skill)
+CREATE TABLE IF NOT EXISTS public.claims (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-    skill_name TEXT NOT NULL,
-    category skill_category NOT NULL,
-    half_life_months INT NOT NULL DEFAULT 24,
-    confidence_score INT CHECK (confidence_score >= 0 AND confidence_score <= 100),
-    confidence_status confidence_status NOT NULL DEFAULT 'insufficient_evidence',
-    time_decay_factor NUMERIC(3, 2) NOT NULL DEFAULT 1.0,
-    last_demonstrated_date DATE,
-    mathematical_reasoning TEXT NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW()) NOT NULL,
-    updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW()) NOT NULL,
-    UNIQUE(user_id, skill_name)
+    skill_id UUID NOT NULL REFERENCES public.skills(id) ON DELETE CASCADE,
+    claimed_level INT CHECK (claimed_level BETWEEN 0 AND 100),
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    UNIQUE(user_id, skill_id)
 );
 
--- 5. Skill Claim <-> Evidence Node Join Table
-CREATE TABLE IF NOT EXISTS public.skill_evidence_links (
-    skill_claim_id UUID NOT NULL REFERENCES public.skill_claims(id) ON DELETE CASCADE,
-    evidence_node_id UUID NOT NULL REFERENCES public.evidence_nodes(id) ON DELETE CASCADE,
-    created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW()) NOT NULL,
-    PRIMARY KEY (skill_claim_id, evidence_node_id)
+-- Join Table: Claims <-> Evidence
+CREATE TABLE IF NOT EXISTS public.claim_evidence (
+    claim_id UUID NOT NULL REFERENCES public.claims(id) ON DELETE CASCADE,
+    evidence_id UUID NOT NULL REFERENCES public.evidence(id) ON DELETE CASCADE,
+    PRIMARY KEY (claim_id, evidence_id)
 );
 
--- 6. Role Benchmarks with Vector Embeddings (768-dim for Gemini embeddings)
-CREATE TABLE IF NOT EXISTS public.role_benchmarks (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    role_title TEXT NOT NULL,
-    seniority_tier TEXT NOT NULL,
-    market_demand_index INT NOT NULL CHECK (market_demand_index >= 0 AND market_demand_index <= 100),
-    typical_salary_min INT,
-    typical_salary_max INT,
-    required_skills JSONB NOT NULL DEFAULT '[]'::JSONB,
-    role_embedding vector(768),
-    created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW()) NOT NULL
+-- 6. Confidence Scores (Deterministic evaluation with time-decay audit fields)
+CREATE TABLE IF NOT EXISTS public.confidence_scores (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    claim_id UUID UNIQUE NOT NULL REFERENCES public.claims(id) ON DELETE CASCADE,
+    last_demonstrated_at DATE,
+    days_elapsed INT NOT NULL DEFAULT 0,
+    half_life_days INT NOT NULL,
+    decay_factor NUMERIC(4, 3) NOT NULL,   -- 2^(-days_elapsed / half_life_days)
+    raw_aggregate_score NUMERIC(5, 2) NOT NULL,
+    final_score INT CHECK (final_score BETWEEN 0 AND 100), -- NULL if insufficient_evidence
+    status TEXT NOT NULL CHECK (status IN ('verified', 'moderate', 'weak', 'insufficient_evidence')),
+    reasoning TEXT NOT NULL,
+    calculated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
--- 7. Missing Skills & Learning-ROI
-CREATE TABLE IF NOT EXISTS public.user_skill_gaps (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+-- 7. Roadmap Tasks (Closing gaps with auto-verification)
+CREATE TABLE IF NOT EXISTS public.roadmap_tasks (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-    skill_name TEXT NOT NULL,
-    category skill_category NOT NULL,
-    importance TEXT NOT NULL,
-    roles_unlocked_count INT NOT NULL DEFAULT 1,
-    estimated_effort_hours INT NOT NULL DEFAULT 20,
-    roi_score NUMERIC(5, 3) NOT NULL,
-    why_it_matters TEXT NOT NULL,
-    difficulty_rating INT NOT NULL CHECK (difficulty_rating BETWEEN 1 AND 5),
-    created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW()) NOT NULL
-);
-
--- 8. Roadmap Action Milestones (Auto-Verification & Feedback Loop)
-CREATE TABLE IF NOT EXISTS public.user_roadmap_tasks (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-    phase_number INT NOT NULL,
+    skill_id UUID NOT NULL REFERENCES public.skills(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
-    verifies_skill_name TEXT,
+    action_prompt TEXT NOT NULL,
     is_completed BOOLEAN DEFAULT FALSE NOT NULL,
     completed_at TIMESTAMPTZ,
-    resulting_evidence_node_id UUID REFERENCES public.evidence_nodes(id) ON DELETE SET NULL,
-    created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW()) NOT NULL
+    resulting_evidence_id UUID REFERENCES public.evidence(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
--- 9. Row Level Security (RLS) Multi-Tenancy Enforcement
+-- 8. Row Level Security (RLS) Multi-Tenancy Enforcement
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.resume_artifacts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.evidence_nodes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.skill_claims ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.skill_evidence_links ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.user_skill_gaps ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.user_roadmap_tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.resumes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.evidence ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.claims ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.claim_evidence ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.confidence_scores ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.roadmap_tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.skills ENABLE ROW LEVEL SECURITY;
 
--- Profiles: Users can view and update their own profile
-CREATE POLICY "Users can manage own profile"
+-- Skills are globally readable by all authenticated users
+CREATE POLICY "Skills are readable by all"
+    ON public.skills FOR SELECT
+    USING (true);
+
+-- User-owned tables enforce auth.uid() = user_id
+CREATE POLICY "Users access own profile"
     ON public.profiles FOR ALL
     USING (auth.uid() = id);
 
--- Resume Artifacts: Users can view and manage their own resumes
-CREATE POLICY "Users can manage own resumes"
-    ON public.resume_artifacts FOR ALL
+CREATE POLICY "Users access own resumes"
+    ON public.resumes FOR ALL
     USING (auth.uid() = user_id);
 
--- Evidence Nodes: Users can view and manage own evidence
-CREATE POLICY "Users can manage own evidence nodes"
-    ON public.evidence_nodes FOR ALL
+CREATE POLICY "Users access own evidence"
+    ON public.evidence FOR ALL
     USING (auth.uid() = user_id);
 
--- Skill Claims: Users can view and manage own claims
-CREATE POLICY "Users can manage own skill claims"
-    ON public.skill_claims FOR ALL
+CREATE POLICY "Users access own claims"
+    ON public.claims FOR ALL
     USING (auth.uid() = user_id);
 
--- Roadmap Tasks: Users can manage own roadmap
-CREATE POLICY "Users can manage own roadmap tasks"
-    ON public.user_roadmap_tasks FOR ALL
+CREATE POLICY "Users access own claim_evidence"
+    ON public.claim_evidence FOR ALL
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.claims c
+            WHERE c.id = claim_evidence.claim_id AND c.user_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Users access own confidence_scores"
+    ON public.confidence_scores FOR ALL
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.claims c
+            WHERE c.id = confidence_scores.claim_id AND c.user_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Users access own roadmap"
+    ON public.roadmap_tasks FOR ALL
     USING (auth.uid() = user_id);
