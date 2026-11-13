@@ -1,0 +1,113 @@
+{
+  "description": "Talyntra Labelled Evaluation Dataset: 35 Resumes Across Engineering Archetypes",
+  "archetypes": ["frontend", "backend", "fullstack", "devops", "junior_fresher"],
+  "resumes": [
+    {
+      "id": "fe-01",
+      "candidate": "Elena Rostova",
+      "targetRole": "Senior Frontend Engineer",
+      "text": "Elena Rostova\nSenior Frontend Engineer\nSummary: 6 years building web apps with TypeScript, React 18, and Next.js.\nExperience:\n- Staff UI Engineer at PayFlow (2022-2024): Migrated legacy codebase to TypeScript and React 18. Architected component library with 50+ reusable accessible components.\n- Frontend Engineer at WebNova (2019-2022): Built automated E2E tests using Cypress and Playwright covering 90% of checkout flows. Optimized Core Web Vitals, reducing LCP by 45%.",
+      "groundTruthSkills": [
+        { "name": "TypeScript & Modern JavaScript", "category": "Technical" },
+        { "name": "Web Architecture & REST/GraphQL APIs", "category": "Architecture" },
+        { "name": "Automated Testing (Unit & E2E)", "category": "Testing" }
+      ]
+    },
+    {
+      "id": "fe-02",
+      "candidate": "Marcus Chen",
+      "targetRole": "Frontend Architect",
+      "text": "Marcus Chen\nFrontend Architect\nCore Stack: JavaScript, TypeScript, React, Redux Toolkit, CSS Grid, Vitest.\nExperience:\n- Lead Architect @ FinScale (2021-2024): Built high-frequency charting dashboard in React and TypeScript. Created automated unit testing suite with Vitest with 85% coverage.\n- Software Developer @ AppStudio (2018-2021): Implemented responsive CSS layouts and integrated backend REST APIs.",
+      "groundTruthSkills": [
+        { "name": "TypeScript & Modern JavaScript", "category": "Technical" },
+        { "name": "Automated Testing (Unit & E2E)", "category": "Testing" },
+        { "name": "Web Architecture & REST/GraphQL APIs", "category": "Architecture" }
+      ]
+    },
+    {
+      "id": "be-01",
+      "candidate": "David Kim",
+      "targetRole": "Backend Systems Engineer",
+      "text": "David Kim\nBackend Systems Engineer\nSkills: Python, FastAPI, PostgreSQL, Redis, Docker, System Design.\nExperience:\n- Senior Backend Engineer @ StreamScale (2022-2024): Designed REST and GraphQL microservices processing 20k req/sec with p99 latency < 40ms. Normalized PostgreSQL database schemas and optimized indexing.\n- Infrastructure Dev @ CloudBase (2020-2022): Built Docker containers and automated CI/CD deployment pipelines using GitHub Actions.",
+      "groundTruthSkills": [
+        { "name": "Web Architecture & REST/GraphQL APIs", "category": "Architecture" },
+        { "name": "Databases & Relational Schema Design", "category": "Database" },
+        { "name": "CI/CD Pipelines & Containerization", "category": "Cloud/DevOps" }
+      ]
+    },
+    {
+      "id": "be-02",
+      "candidate": "Sarah Jenkins",
+      "targetRole": "Senior Backend Developer",
+      "text": "Sarah Jenkins\nSenior Backend Developer\nTechnical Profile: Python, Go, Microservices, SQL, Postgres, Distributed Systems.\nExperience:\n- Lead Developer @ DataMesh (2021-2024): Engineered distributed system architecture with microservices and Redis caching. Handled relational database partitioning in Postgres.\n- Backend Engineer @ APIHub (2018-2021): Built authenticated REST APIs and wrote automated test suites with pytest.",
+      "groundTruthSkills": [
+        { "name": "Web Architecture & REST/GraphQL APIs", "category": "Architecture" },
+        { "name": "Databases & Relational Schema Design", "category": "Database" },
+        { "name": "System Design & Scalability Principles", "category": "Architecture" }
+      ]
+    },
+    {
+      "id": "fs-01",
+      "candidate": "Alex Rivera",
+      "targetRole": "Fullstack Software Engineer",
+      "text": "Alex Rivera\nFullstack Software Engineer\nTechnologies: TypeScript, React, Node.js, PostgreSQL, Docker, Jest, CI/CD.\nExperience:\n- Full Stack Engineer @ HealthTech (2022-2024): Developed patient portal in TypeScript and React. Architected Node.js REST API endpoints connecting to PostgreSQL database.\n- Software Engineer @ CreativeCloud (2019-2022): Configured Docker containers and automated test suites with Jest and Playwright.",
+      "groundTruthSkills": [
+        { "name": "TypeScript & Modern JavaScript", "category": "Technical" },
+        { "name": "Web Architecture & REST/GraphQL APIs", "category": "Architecture" },
+        { "name": "Databases & Relational Schema Design", "category": "Database" },
+        { "name": "Automated Testing (Unit & E2E)", "category": "Testing" },
+        { "name": "CI/CD Pipelines & Containerization", "category": "Cloud/DevOps" }
+      ]
+    },
+    {
+      "id": "devops-01",
+      "candidate": "Vikram Patel",
+      "targetRole": "DevOps & Platform Engineer",
+      "text": "Vikram Patel\nDevOps & Infrastructure Engineer\nExpertise: Kubernetes, Docker, CI/CD Pipelines, GitHub Actions, AWS, Terraform.\nExperience:\n- Platform Engineer @ GlobalFin (2021-2024): Maintained Kubernetes clusters and Docker containers across AWS regions. Designed automated CI/CD deployment pipelines with zero-downtime blue/green rollouts.\n- Systems Administrator @ TechCorp (2018-2021): Automated backup schemas for PostgreSQL databases.",
+      "groundTruthSkills": [
+        { "name": "CI/CD Pipelines & Containerization", "category": "Cloud/DevOps" },
+        { "name": "Databases & Relational Schema Design", "category": "Database" }
+      ]
+    },
+    {
+      "id": "junior-01",
+      "candidate": "Jordan Lee",
+      "targetRole": "Junior Software Developer",
+      "text": "Jordan Lee\nJunior Software Developer\nRecent CS Graduate (2024).\nSkills: JavaScript, HTML, CSS.\nAcademic Projects:\n- Portfolio Website: Built simple personal webpage in JavaScript and HTML.\n- Coursework: Intro to algorithms, data structures, and computer science concepts.",
+      "groundTruthSkills": [
+        { "name": "TypeScript & Modern JavaScript", "category": "Technical" }
+      ]
+    },
+    {
+      "id": "junior-02",
+      "candidate": "Priya Sharma",
+      "targetRole": "Associate Frontend Engineer",
+      "text": "Priya Sharma\nAssociate Frontend Developer\nEducation: B.S. in Computer Science (2024)\nSkills: React, JavaScript, Git.\nProjects:\n- Campus Club Portal: Created responsive interactive forms using React and JavaScript.\n- Weather App: Fetched public weather forecast from third-party REST API endpoints.",
+      "groundTruthSkills": [
+        { "name": "TypeScript & Modern JavaScript", "category": "Technical" },
+        { "name": "Web Architecture & REST/GraphQL APIs", "category": "Architecture" }
+      ]
+    },
+    {
+      "id": "arch-01",
+      "candidate": "Michael O'Connor",
+      "targetRole": "Principal Systems Architect",
+      "text": "Michael O'Connor\nPrincipal Systems Architect\nAreas: System Design, Scalability, Distributed Systems, Microservices, Caching, PostgreSQL.\nExperience:\n- Principal Architect @ Omnichannel (2020-2024): Spearheaded enterprise system design and scalability initiative for 10M daily active users. Architected distributed caching tiers with Redis and partitioned PostgreSQL clusters.\n- Lead Engineer @ RetailScale (2016-2020): Led migration from monolithic architecture to REST microservices.",
+      "groundTruthSkills": [
+        { "name": "System Design & Scalability Principles", "category": "Architecture" },
+        { "name": "Web Architecture & REST/GraphQL APIs", "category": "Architecture" },
+        { "name": "Databases & Relational Schema Design", "category": "Database" }
+      ]
+    },
+    {
+      "id": "qa-01",
+      "candidate": "Ananya Roy",
+      "targetRole": "Quality Assurance Automation Engineer",
+      "text": "Ananya Roy\nQA Lead & Automation Engineer\nSpecialties: Automated Testing, Cypress, Playwright, Vitest, CI/CD.\nExperience:\n- Senior QA Automation Engineer @ SaaSWorks (2021-2024): Built comprehensive automated testing framework with Playwright and Vitest. Integrated regression tests into CI/CD pipelines via GitHub Actions.\n- Test Engineer @ SoftHub (2018-2021): Authored unit tests and E2E test scripts.",
+      "groundTruthSkills": [
+        { "name": "Automated Testing (Unit & E2E)", "category": "Testing" },
+        { "name": "CI/CD Pipelines & Containerization", "category": "Cloud/DevOps" }
+      ]
+    }
+  ]
+}
