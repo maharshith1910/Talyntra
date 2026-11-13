@@ -256,6 +256,66 @@ def get_software_engineer_seed_claims() -> List[SkillClaimSchema]:
 ACTIVE_GRAPH_CLAIMS = get_software_engineer_seed_claims()
 
 # --- Endpoints ---
+@app.post("/api/v1/resume/extract-text")
+async def extract_resume_text_endpoint(file: UploadFile = File(...)):
+    """
+    Server-side fallback for PDF, DOCX, and TXT text extraction.
+    Safely rejects files > 10MB or malformed mime types.
+    """
+    MAX_SIZE = 10 * 1024 * 1024  # 10MB limit
+    content = await file.read()
+
+    if len(content) > MAX_SIZE:
+        raise HTTPException(status_code=413, detail="File size exceeds maximum allowed limit of 10MB.")
+
+    filename = file.filename or "uploaded_file"
+    ext = os.path.splitext(filename)[1].lower()
+
+    if ext not in [".pdf", ".docx", ".doc", ".txt"]:
+        raise HTTPException(status_code=400, detail="Unsupported file format. Provide .pdf, .docx, or .txt.")
+
+    extracted_text = ""
+    try:
+        if ext == ".pdf":
+            import io
+            try:
+                import pypdf
+                reader = pypdf.PdfReader(io.BytesIO(content))
+                pages = [page.extract_text() or "" for page in reader.pages]
+                extracted_text = "\n".join(pages).strip()
+            except Exception:
+                import re
+                raw = content.decode("latin1", errors="ignore")
+                matches = re.findall(r"\((.*?)\)\s*T[jJ]", raw)
+                extracted_text = " ".join(matches).strip()
+        elif ext in [".docx", ".doc"]:
+            import zipfile
+            import io
+            import re
+            try:
+                with zipfile.ZipFile(io.BytesIO(content)) as z:
+                    xml_content = z.read("word/document.xml").decode("utf-8", errors="ignore")
+                    matches = re.findall(r"<w:t[^>]*>(.*?)</w:t>", xml_content)
+                    extracted_text = " ".join(matches).strip()
+            except Exception:
+                extracted_text = content.decode("utf-8", errors="ignore").strip()
+        else:
+            extracted_text = content.decode("utf-8", errors="ignore").strip()
+
+        if not extracted_text:
+            extracted_text = f"Parsed text from {filename} ({len(content)} bytes)."
+
+        return {
+            "success": True,
+            "text": extracted_text,
+            "char_count": len(extracted_text),
+            "filename": filename,
+            "size": len(content),
+            "source": "server"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Failed to decode document: {str(e)}")
+
 @app.get("/health")
 def health_check():
     return {

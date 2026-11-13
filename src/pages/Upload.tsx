@@ -5,6 +5,7 @@ import Logo from '../components/Logo';
 import Button from '../components/Button';
 import { useStore } from '../lib/store';
 import { analyzeCV } from '../lib/mockAI';
+import { extractResumeText, ExtractionResult } from '../lib/resumeExtractor';
 
 const ACCEPT = '.pdf,.doc,.docx';
 
@@ -16,6 +17,8 @@ export default function Upload() {
   const [over, setOver] = useState(false);
   const [parsing, setParsing] = useState(false);
   const [analyzingProfile, setAnalyzingProfile] = useState(false);
+  const [extractionResult, setExtractionResult] = useState<ExtractionResult | null>(null);
+  const [extractionError, setExtractionError] = useState<string | null>(null);
   const [form, setForm] = useState({
     fullName: state.profile.fullName || '',
     targetRole: state.profile.targetRole || '',
@@ -36,22 +39,34 @@ export default function Upload() {
     return () => window.removeEventListener('keydown', handleKey);
   }, [nav]);
 
-  const handleFile = (f?: File) => {
-    if (!f || !/\.(pdf|docx?)$/i.test(f.name)) return;
+  const handleFile = async (f?: File) => {
+    if (!f) return;
+    setExtractionError(null);
     setParsing(true);
     setCvFile({ name: f.name, size: f.size });
 
-    // Simulate backend CV text parsing & keyword extraction
-    setTimeout(() => {
-      setParsing(false);
-      // Auto-populate intelligent defaults if blank
+    try {
+      const res = await extractResumeText(f);
+      setExtractionResult(res);
+
+      // Auto-extract candidate name from first line if cleanly formatted
+      const firstLine = res.text.split('\n')[0]?.trim();
+      const extractedName =
+        firstLine && firstLine.length < 40 && !/resume|curriculum|cv|profile/i.test(firstLine)
+          ? firstLine
+          : f.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
+
       if (!form.fullName) {
         setForm((prev) => ({
           ...prev,
-          fullName: f.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' '),
+          fullName: extractedName,
         }));
       }
-    }, 1200);
+    } catch (err: any) {
+      setExtractionError(err?.message || 'Failed to extract text from document.');
+    } finally {
+      setParsing(false);
+    }
   };
 
   const onDrop = (e: DragEvent) => {
@@ -123,19 +138,27 @@ export default function Upload() {
         {parsing ? (
           <div className="parsing-indicator">
             <div className="spinner" />
-            <p>Analyzing CV structure &amp; skills at backend…</p>
+            <p>Extracting text streams via Web Worker (server fallback ready)…</p>
+          </div>
+        ) : extractionError ? (
+          <div className="toast-banner" style={{ background: 'rgba(239, 68, 68, 0.2)', borderColor: '#ef4444', color: '#fca5a5' }}>
+            ⚠️ {extractionError}
           </div>
         ) : state.cvFile ? (
           <div className="parsed-badge">
             <span className="parsed-check">✓</span>
             <p className="parsed-name">{state.cvFile.name}</p>
-            <span className="parsed-meta">Analyzed • Ready for validation</span>
+            <span className="parsed-meta">
+              {extractionResult
+                ? `Extracted ${extractionResult.charCount.toLocaleString()} chars (${extractionResult.source === 'client_worker' ? 'Web Worker' : 'Server Fallback'})`
+                : 'Analyzed • Ready for validation'}
+            </span>
           </div>
         ) : (
           <p>
             Drag &amp; Drop or Click to Upload
             <br />
-            PDF / DOCX supported
+            PDF / DOCX supported (Max 10MB)
           </p>
         )}
 
