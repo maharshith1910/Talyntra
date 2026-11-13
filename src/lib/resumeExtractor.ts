@@ -137,3 +137,4 @@ async function extractWithServerFallback(file: File): Promise<ExtractionResult> 
     };
   }
 }
+

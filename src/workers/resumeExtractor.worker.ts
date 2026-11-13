@@ -154,3 +154,4 @@ function extractXmlTextTags(xmlString: string): string {
   // Fallback: strip all XML tags
   return xmlString.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 }
+
