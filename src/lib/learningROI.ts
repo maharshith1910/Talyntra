@@ -272,6 +272,23 @@ export const DETERMINISTIC_JOBS_CORPUS: BenchmarkJobPosting[] = [
 ];
 
 /**
+ * Matches two skill names with canonical alias tolerance (e.g. "TypeScript & Strict Types" vs "TypeScript & Modern JavaScript")
+ */
+export function matchSkillName(a: string, b: string): boolean {
+  const normA = a.toLowerCase().trim();
+  const normB = b.toLowerCase().trim();
+  if (normA === normB) return true;
+  if (normA.startsWith('typescript') && normB.startsWith('typescript')) return true;
+  if (normA.includes('rest') && normB.includes('rest')) return true;
+  if (normA.includes('testing') && normB.includes('testing')) return true;
+  if (normA.includes('database') && normB.includes('database')) return true;
+  if (normA.includes('ci/cd') && normB.includes('ci/cd')) return true;
+  if (normA.includes('system design') && normB.includes('system design')) return true;
+  if (normA.includes('caching') && normB.includes('caching')) return true;
+  return false;
+}
+
+/**
  * Computes Match Score M(G, j) between candidate Evidence Graph and a Job Posting.
  * Weighting: Evidenced skills (1.0) strictly outweigh merely claimed skills (0.40).
  */
@@ -288,9 +305,9 @@ export function scoreJobMatch(
     const weight = 1.0;
     totalWeight += weight;
 
-    // Find claim (case-insensitive)
+    // Find claim (case-insensitive with canonical aliases)
     const claim = Object.values(claims).find(
-      (c) => c.skillName.toLowerCase() === req.toLowerCase()
+      (c) => matchSkillName(c.skillName, req)
     );
 
     if (claim) {
@@ -312,7 +329,7 @@ export function scoreJobMatch(
     totalWeight += weight;
 
     const claim = Object.values(claims).find(
-      (c) => c.skillName.toLowerCase() === pref.toLowerCase()
+      (c) => matchSkillName(c.skillName, pref)
     );
 
     if (claim) {
@@ -360,9 +377,15 @@ export function evaluateCounterfactualROI(
     const cfGraph: EvidenceGraph = JSON.parse(JSON.stringify(graph));
     if (!cfGraph.skillClaims) cfGraph.skillClaims = {};
 
+    // Look for existing claim with matching skillName to avoid duplicate shadowed entries
+    const existingKey = Object.keys(cfGraph.skillClaims).find(
+      (k) => matchSkillName(cfGraph.skillClaims[k].skillName, skill)
+    );
+    const targetKey = existingKey || `claim_cf_${skill}`;
+
     // Inject skill as verified (85% confidence score)
-    cfGraph.skillClaims[`claim_cf_${skill}`] = {
-      id: `claim_cf_${skill}`,
+    cfGraph.skillClaims[targetKey] = {
+      id: targetKey,
       skillName: skill,
       category: 'Technical',
       claimedLevel: 85,

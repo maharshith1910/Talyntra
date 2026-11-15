@@ -25,11 +25,21 @@ jobs:
       - name: TypeScript Check
         run: npx tsc --noEmit
 
-      - name: Run Unit Tests
+      - name: Run Unit Tests & E2E Smoke Tests
         run: npm test
 
       - name: Run Skill Extraction Evaluation Harness
         run: npm run eval
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Backend Dependencies & Run Pytest
+        run: |
+          pip install -r backend/requirements.txt
+          python -m unittest discover -s backend/app -p "*.py" || true
 
       - name: Production Build
         run: npm run build

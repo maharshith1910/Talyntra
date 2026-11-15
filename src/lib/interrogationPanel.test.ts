@@ -169,3 +169,4 @@ test('generateSessionSummary returns strongest evidence, weakest gaps, and roadm
   assert.ok(summary.weakestClaims.length > 0, 'Must identify weakest claims');
   assert.ok(summary.suggestedRoadmapTasks.length > 0, 'Must suggest roadmap tasks');
 });
+

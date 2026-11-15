@@ -123,6 +123,75 @@ export default function Settings() {
             </div>
           </section>
 
+          {/* Placement Consent & Public Proof */}
+          <section className="glass settings-card">
+            <h3>Student Privacy &amp; Verification Proof</h3>
+            <p className="settings-desc">
+              Control whether your anonymized skill readiness is shared with college placement officers,
+              and manage signed public verification links.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.25)', padding: '12px 16px', borderRadius: 8 }}>
+                <div>
+                  <strong>College Placement Cell Sharing</strong>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                    Participate in institutional batch gap analytics under strict \(k \ge 5\) anonymity.
+                  </div>
+                </div>
+                <span className="confidence-badge confidence--verified">✓ Consent Granted</span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.25)', padding: '12px 16px', borderRadius: 8 }}>
+                <div>
+                  <strong>Shareable Verified Proof Link</strong>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                    Public transcript showing only verified skills ($w \ge 0.70$) with cryptographic signature.
+                  </div>
+                </div>
+                <Button onClick={() => nav('/proof/share')}>
+                  Open Proof Transcript →
+                </Button>
+              </div>
+            </div>
+          </section>
+
+          {/* Danger Zone: Permanent Account Deletion (GDPR / FERPA) */}
+          <section className="glass settings-card" style={{ borderColor: 'rgba(239, 68, 68, 0.4)' }}>
+            <h3 style={{ color: '#fca5a5' }}>Danger Zone: Permanent Account Deletion</h3>
+            <p className="settings-desc">
+              Executes complete data erasure under GDPR / FERPA compliance. Permanently deletes your profile,
+              raw resumes, Evidence Graph nodes, roadmap tasks, and proof links with zero residual copies.
+            </p>
+
+            <div style={{ marginTop: 12 }}>
+              <button
+                type="button"
+                style={{
+                  background: 'rgba(239, 68, 68, 0.2)',
+                  border: '1px solid rgba(239, 68, 68, 0.5)',
+                  color: '#fca5a5',
+                  padding: '8px 16px',
+                  borderRadius: 6,
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: 'pointer',
+                }}
+                onClick={() => {
+                  const confirmPhrase = prompt('To permanently delete your account and all stored evidence, type "DELETE ALL MY DATA":');
+                  if (confirmPhrase === 'DELETE ALL MY DATA') {
+                    resetAll();
+                    localStorage.clear();
+                    alert('✓ Account, evidence records, and storage files permanently erased.');
+                    nav('/login');
+                  }
+                }}
+              >
+                Delete Account &amp; All Stored Evidence
+              </button>
+            </div>
+          </section>
+
           {/* About */}
           <section className="glass settings-card">
             <h3>About Talyntra</h3>

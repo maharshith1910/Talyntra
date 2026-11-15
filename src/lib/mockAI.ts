@@ -218,19 +218,28 @@ function buildMockEvidenceGraph(roleType: string, profile: Profile): EvidenceGra
     addClaim('claim-k8s', 'Kubernetes & Service Mesh', 'Technical', [eWeakK8s], 24);
   } else {
     // Single Role Slice: Software Engineer / General
-    const e1 = addNode('ev-se-1', 'resume_bullet', 'Migrated 80k lines of legacy JavaScript to strict TypeScript with zero any escapes, reducing runtime type errors by 44%.', 'Senior Software Engineer @ FinTech (2024)', '2024-03', 0.95, true);
-    const e2 = addNode('ev-se-2', 'resume_bullet', 'Engineered distributed REST microservices handling 15,000 req/sec with p99 latency < 50ms using Node.js and Redis caching.', 'Backend Engineer @ CloudScale (2024)', '2024-04', 0.95, true);
-    const e3 = addNode('ev-se-3', 'resume_bullet', 'Architected Vitest and Playwright test suites covering 88% of critical checkout flows, preventing production regressions.', 'Full Stack Engineer @ E-Commerce (2024)', '2024-01', 0.90, true);
-    const e4 = addNode('ev-se-4', 'project_artifact', 'Normalized PostgreSQL relational schemas and implemented composite B-Tree indexes, speeding up query execution by 3.2x.', 'Software Engineer (2023)', '2023-09', 0.85, true);
-    const e5 = addNode('ev-se-5', 'resume_bullet', 'Authored GitHub Actions workflows and multi-stage Docker builds to automate testing and preview deployments.', 'DevOps Contributor (2023)', '2023-11', 0.80, true);
+    const curYear = new Date().getFullYear();
+    const curMonth = (new Date().getMonth() + 1).toString().padStart(2, '0');
+    const recentDate = `${curYear}-${curMonth}`;
+    const recentPrev = `${curYear}-${Math.max(1, new Date().getMonth()).toString().padStart(2, '0')}`;
+
+    const e1 = addNode('ev-se-1', 'resume_bullet', 'Migrated 80k lines of legacy JavaScript to strict TypeScript with zero any escapes, reducing runtime type errors by 44%.', 'Senior Software Engineer @ FinTech', recentDate, 0.95, true);
+    const e1b = addNode('ev-se-1b', 'project_artifact', 'Authored open-source TypeScript CLI utility with strict compile checks and 99% test coverage.', 'GitHub Portfolio', recentDate, 0.90, true);
+    const e2 = addNode('ev-se-2', 'resume_bullet', 'Engineered distributed REST microservices handling 15,000 req/sec with p99 latency < 50ms using Node.js and Redis caching.', 'Backend Engineer @ CloudScale', recentDate, 0.95, true);
+    const e2b = addNode('ev-se-2b', 'project_artifact', 'Designed OpenAPI 3.0 schema and REST/GraphQL gateway for multi-tenant microservices.', 'Production Architecture', recentDate, 0.88, true);
+    const e3 = addNode('ev-se-3', 'resume_bullet', 'Architected Vitest and Playwright test suites covering 88% of critical checkout flows, preventing production regressions.', 'Full Stack Engineer @ E-Commerce', recentPrev, 0.90, true);
+    const e3b = addNode('ev-se-3b', 'project_artifact', 'Integrated automated Vitest GitHub Actions pipeline blocking regressions on pull requests.', 'CI/CD Pipeline', recentPrev, 0.85, true);
+    const e4 = addNode('ev-se-4', 'project_artifact', 'Normalized PostgreSQL relational schemas and implemented composite B-Tree indexes, speeding up query execution by 3.2x.', 'Software Engineer', recentPrev, 0.85, true);
+    const e4b = addNode('ev-se-4b', 'resume_bullet', 'Authored migration scripts and connection pooling configurations for PostgreSQL.', 'Database Infrastructure', recentPrev, 0.82, true);
+    const e5 = addNode('ev-se-5', 'resume_bullet', 'Authored GitHub Actions workflows and multi-stage Docker builds to automate testing and preview deployments.', 'DevOps Contributor', recentPrev, 0.80, true);
 
     // Thin evidence node for System Design (triggers Rule 5)
     const eWeakSys = addNode('ev-weak-sys', 'resume_bullet', 'Mentioned system scalability in resume summary without concrete horizontal partitioning or distributed caching metrics.', 'Resume Summary Keyword', '2021-03', 0.28, false);
 
-    addClaim('claim-ts', 'TypeScript & Modern JavaScript', 'Technical', [e1], 24, 90);
-    addClaim('claim-api', 'Web Architecture & REST/GraphQL APIs', 'Technical', [e2], 24, 85);
-    addClaim('claim-test', 'Automated Testing (Unit & E2E)', 'Technical', [e3], 24, 80);
-    addClaim('claim-db', 'Databases & Relational Schema Design', 'Technical', [e4], 48, 75);
+    addClaim('claim-ts', 'TypeScript & Modern JavaScript', 'Technical', [e1, e1b], 24, 90);
+    addClaim('claim-api', 'Web Architecture & REST/GraphQL APIs', 'Technical', [e2, e2b], 24, 85);
+    addClaim('claim-test', 'Automated Testing (Unit & E2E)', 'Technical', [e3, e3b], 24, 80);
+    addClaim('claim-db', 'Databases & Relational Schema Design', 'Technical', [e4, e4b], 48, 75);
     addClaim('claim-cicd', 'CI/CD Pipelines & Containerization', 'Domain', [e5], 24, 70);
     addClaim('claim-sysdesign', 'System Design & Scalability Principles', 'Technical', [eWeakSys], 48, 80);
   }

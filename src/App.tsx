@@ -8,6 +8,8 @@ import Validation from './pages/Validation';
 import Roadmap from './pages/Roadmap';
 import Chat from './pages/Chat';
 import Settings from './pages/Settings';
+import PublicProof from './pages/PublicProof';
+import PlacementAdmin from './pages/PlacementAdmin';
 
 export default function App() {
   return (
@@ -21,6 +23,8 @@ export default function App() {
       <Route path="/roadmap" element={<Roadmap />} />
       <Route path="/chat" element={<Chat />} />
       <Route path="/settings" element={<Settings />} />
+      <Route path="/proof/:tokenId" element={<PublicProof />} />
+      <Route path="/placement-admin" element={<PlacementAdmin />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

@@ -69,3 +69,4 @@ export const COMPANY_PLACEMENT_MODES: CompanyPlacementMode[] = [
     officialVerificationNote: 'Mandatory official verification: Check official Google Careers guidelines (careers.google.com/how-we-hire). Verify plain text editor format and prohibition of external third-party libraries.',
   },
 ];
+

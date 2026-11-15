@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     email TEXT NOT NULL,
     full_name TEXT NOT NULL,
     target_role TEXT NOT NULL DEFAULT 'Software Engineer',
+    role TEXT NOT NULL DEFAULT 'student' CHECK (role IN ('student', 'placement_admin')),
+    placement_consent_granted BOOLEAN DEFAULT FALSE NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
@@ -234,4 +236,67 @@ CREATE POLICY "Allow public read access to job postings"
     ON public.job_postings FOR SELECT
     TO authenticated, anon
     USING (true);
+
+-- =============================================================================
+-- 10. Phase 6: Public Proof Tokens & Observability
+-- =============================================================================
+
+-- Cryptographically verifiable, revocable public proof tokens
+CREATE TABLE IF NOT EXISTS public.proof_tokens (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    token_id TEXT UNIQUE NOT NULL,
+    signature TEXT NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    is_revoked BOOLEAN DEFAULT FALSE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_proof_tokens_lookup ON public.proof_tokens (token_id);
+
+ALTER TABLE public.proof_tokens ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users manage own proof tokens"
+    ON public.proof_tokens FOR ALL
+    USING (auth.uid() = user_id);
+
+CREATE POLICY "Public read active proof tokens"
+    ON public.proof_tokens FOR SELECT
+    TO anon, authenticated
+    USING (is_revoked = FALSE AND expires_at > NOW());
+
+-- LLM Token Usage, Cost Tracking & Monthly Hard Cap
+CREATE TABLE IF NOT EXISTS public.user_llm_usage (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    billing_month TEXT NOT NULL,           -- e.g. '2026-11'
+    tokens_input BIGINT DEFAULT 0 NOT NULL,
+    tokens_output BIGINT DEFAULT 0 NOT NULL,
+    total_cost_usd NUMERIC(6, 4) DEFAULT 0.0000 NOT NULL,
+    hard_cap_usd NUMERIC(6, 4) DEFAULT 2.5000 NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    UNIQUE(user_id, billing_month)
+);
+
+ALTER TABLE public.user_llm_usage ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users read own LLM cost telemetry"
+    ON public.user_llm_usage FOR SELECT
+    USING (auth.uid() = user_id);
+
+-- Complete Account Erase Procedure (GDPR / FERPA Cascade)
+CREATE OR REPLACE FUNCTION public.delete_user_account(target_user_id UUID)
+RETURNS void AS $$
+BEGIN
+    -- 1. Remove all stored files
+    DELETE FROM storage.objects
+    WHERE bucket_id = 'resumes' AND (storage.foldername(name))[1] = target_user_id::text;
+
+    -- 2. Delete profile (cascades to resumes, claims, evidence, confidence_scores, tasks, tokens, usage)
+    DELETE FROM public.profiles
+    WHERE id = target_user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 
