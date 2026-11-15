@@ -10,7 +10,8 @@ export type EvidenceSourceType =
   | 'github_topic'
   | 'github_merged_pr'
   | 'credential'
-  | 'verified_task';
+  | 'verified_task'
+  | 'interview_practice';
 
 export type SkillCategory = 'Technical' | 'Soft' | 'Domain';
 
@@ -359,5 +360,114 @@ export function addVerifiedTaskToGraph(
     skillClaims: updatedSkillClaims,
     overallMatchScore,
     overallReasoning: `Aggregated across ${scores.length} verified skill claim(s) in Evidence Graph.`,
+  };
+}
+
+/**
+ * Adds an interview practice evidence node from the Interrogation Panel (Recruiter, EM, Bar Raiser)
+ * into the Evidence Graph and re-evaluates skill confidence.
+ */
+export function addInterviewPracticeToGraph(
+  graph: EvidenceGraph,
+  skillName: string,
+  personaName: string,
+  score: number,
+  candidateAnswerSummary: string,
+  referenceDate: Date = new Date()
+): EvidenceGraph {
+  const evidenceId = `ev_interview_${personaName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${Date.now()}`;
+  const nowIso = referenceDate.toISOString().slice(0, 10); // YYYY-MM-DD
+
+  // Base weight for interview practice is calibrated by score (0.40 to 0.85)
+  const baseWeight = Math.min(0.85, Math.max(0.40, Number(((score / 100) * 0.75).toFixed(2))));
+
+  const newEvidenceNode: EvidenceNode = {
+    id: evidenceId,
+    sourceType: 'interview_practice',
+    rawText: `Interrogation Panel (${personaName}): Scored ${score}% on technical challenge. Response: "${candidateAnswerSummary.slice(0, 140)}..."`,
+    sourceContext: `Talyntra Interrogation Panel (${personaName})`,
+    timestamp: nowIso,
+    baseWeight,
+    verified: score >= 70,
+  };
+
+  const updatedEvidenceNodes = {
+    ...graph.evidenceNodes,
+    [evidenceId]: newEvidenceNode,
+  };
+
+  // Find or create the skill claim
+  const existingClaimEntry = Object.entries(graph.skillClaims).find(
+    ([, claim]) => claim.skillName.toLowerCase() === skillName.toLowerCase()
+  );
+
+  let targetClaim: SkillClaim;
+  let claimKey: string;
+
+  if (existingClaimEntry) {
+    [claimKey, targetClaim] = existingClaimEntry;
+    targetClaim = {
+      ...targetClaim,
+      linkedEvidenceIds: [...targetClaim.linkedEvidenceIds, evidenceId],
+    };
+  } else {
+    claimKey = `claim_${skillName.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+    targetClaim = {
+      id: claimKey,
+      skillName,
+      category: 'Technical',
+      claimedLevel: 80,
+      evidencedLevel: null,
+      linkedEvidenceIds: [evidenceId],
+      halfLifeMonths: 24,
+      daysElapsed: 0,
+      confidenceScore: null,
+      confidenceStatus: 'insufficient_evidence',
+      timeDecayFactor: 1.0,
+      lastDemonstratedDate: nowIso,
+      reasoning: '',
+    };
+  }
+
+  // Recalculate confidence for this claim
+  const linkedNodes = targetClaim.linkedEvidenceIds
+    .map((id) => updatedEvidenceNodes[id])
+    .filter(Boolean);
+
+  const evalResult = evaluateSkillConfidence(
+    targetClaim.skillName,
+    targetClaim.category,
+    linkedNodes,
+    targetClaim.halfLifeMonths,
+    referenceDate,
+    targetClaim.claimedLevel
+  );
+
+  targetClaim = {
+    ...targetClaim,
+    ...evalResult,
+    reasoning: `Interview Calibration (${personaName}): ${evalResult.reasoning}`,
+  };
+
+  const updatedSkillClaims = {
+    ...graph.skillClaims,
+    [claimKey]: targetClaim,
+  };
+
+  const verifiedScores = Object.values(updatedSkillClaims)
+    .map((c) => c.confidenceScore)
+    .filter((s): s is number => s !== null);
+
+  const newOverallMatchScore =
+    verifiedScores.length > 0
+      ? Math.round(verifiedScores.reduce((sum, c) => sum + c, 0) / verifiedScores.length)
+      : graph.overallMatchScore;
+
+  return {
+    ...graph,
+    evidenceNodes: updatedEvidenceNodes,
+    skillClaims: updatedSkillClaims,
+    overallMatchScore: newOverallMatchScore,
+    overallReasoning: `Updated after ${personaName} interrogation challenge for "${skillName}" (Confidence: ${targetClaim.confidenceScore ?? 'insufficient'}%).`,
   };
 }

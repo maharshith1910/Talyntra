@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS public.evidence (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     resume_id UUID REFERENCES public.resumes(id) ON DELETE SET NULL,
-    source_type TEXT NOT NULL CHECK (source_type IN ('resume_bullet', 'project_artifact', 'verified_task', 'github_repo_lang', 'github_topic', 'github_merged_pr')),
+    source_type TEXT NOT NULL CHECK (source_type IN ('resume_bullet', 'project_artifact', 'verified_task', 'github_repo_lang', 'github_topic', 'github_merged_pr', 'interview_practice')),
     raw_text TEXT NOT NULL,                -- Verbatim quote from resume/deliverable
     source_context TEXT NOT NULL,          -- e.g. "Software Engineer @ Acme (2023 - 2024)" or "GitHub Repo: user/repo"
     demonstrated_at DATE NOT NULL,         -- Date of achievement for time decay

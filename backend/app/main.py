@@ -734,6 +734,110 @@ def compute_counterfactual_roi(payload: CounterfactualRequest):
         ),
     }
 
+# --- Phase 5: Interrogation Panel Endpoints ---
+class InterrogationChallengeRequest(BaseModel):
+    persona: str = "bar_raiser" # recruiter, engineering_manager, bar_raiser
+    company_mode: str = "standard"
+    evidence_graph: Dict[str, Any]
+
+class InterrogationEvaluateRequest(BaseModel):
+    persona: str
+    skill_name: str
+    answer: str
+    company_mode: str = "standard"
+
+@app.post("/api/v1/interrogation/challenge")
+def create_interrogation_challenge(payload: InterrogationChallengeRequest):
+    """
+    Selects a weakly-evidenced claim from the candidate's Evidence Graph
+    and generates an interrogation-style pressure-test question based on the selected persona.
+    """
+    persona = payload.persona.lower()
+    skill_claims = payload.evidence_graph.get("skillClaims", {})
+
+    # Persona targeting logic
+    target_skill = "System Design & Scalability Principles"
+    for claim in skill_claims.values():
+        if persona == "bar_raiser" and claim.get("confidenceStatus") == "insufficient_evidence":
+            target_skill = claim.get("skillName")
+            break
+        elif persona == "engineering_manager" and claim.get("daysElapsed", 0) > 60:
+            target_skill = claim.get("skillName")
+            break
+        elif persona == "recruiter" and claim.get("claimedLevel", 0) >= 80 and not claim.get("confidenceScore"):
+            target_skill = claim.get("skillName")
+            break
+
+    if persona == "recruiter":
+        question = (
+            f"You claimed an advanced proficiency in '{target_skill}', yet our Evidence Graph flags zero verifiable production deliverables. "
+            "In 60 seconds using the STAR framework (Situation, Task, Action, Result), tell me about your personal scope versus your team's, and the measurable business metric you achieved."
+        )
+    elif persona == "engineering_manager":
+        question = (
+            f"Regarding your experience in '{target_skill}': Production systems fail under load. "
+            "Walk me through the worst outage or performance degradation you personally diagnosed with this skill. What rollback did you trigger, and what automated test did you write to prevent regressions?"
+        )
+    else: # bar_raiser
+        question = (
+            f"Our Evidence Graph currently marks your '{target_skill}' competency as 'insufficient_evidence'. "
+            "Suppose traffic spikes 15x and p99 latency degrades to 800ms. Walk me through the exact architectural invariants, caching policies, and concurrency bounds you would enforce to protect system stability."
+        )
+
+    return {
+        "success": True,
+        "persona": persona,
+        "target_skill": target_skill,
+        "question": question,
+        "company_mode": payload.company_mode,
+    }
+
+@app.post("/api/v1/interrogation/evaluate")
+def evaluate_interrogation_challenge(payload: InterrogationEvaluateRequest):
+    """
+    Evaluates candidate's answer against the persona's rubric and produces a verified
+    interview_practice evidence node.
+    """
+    txt = payload.answer.strip()
+    words = len(txt.split())
+    has_metrics = any(char.isdigit() for char in txt)
+    has_tradeoffs = any(term in txt.lower() for term in ["latency", "partition", "trade-off", "bottleneck", "rollback", "cache"])
+
+    score = 50
+    if words >= 30:
+        score += 20
+    if has_metrics:
+        score += 15
+    if has_tradeoffs:
+        score += 15
+    score = min(100, score)
+    passed = score >= 70
+
+    evidence_node = None
+    if passed:
+        evidence_node = {
+            "id": f"ev-interview-{int(datetime.utcnow().timestamp())}",
+            "source_type": "interview_practice",
+            "raw_text": f"Defended technical competency '{payload.skill_name}' against {payload.persona.replace('_', ' ').title()} panel challenge ({score}% score).",
+            "source_context": f"Talyntra Interrogation Panel ({payload.persona.replace('_', ' ').title()})",
+            "demonstrated_at": datetime.utcnow().strftime("%Y-%m-%d"),
+            "base_weight": 0.70,
+            "is_verified": True,
+        }
+
+    return {
+        "success": True,
+        "persona": payload.persona,
+        "skill_name": payload.skill_name,
+        "score": score,
+        "passed": passed,
+        "evidence_node": evidence_node,
+        "feedback": (
+            f"✓ Passed {payload.persona.replace('_', ' ').title()} challenge with {score}%." if passed
+            else f"⚠️ Gaps detected ({score}%). Include specific numerical metrics and architectural tradeoffs."
+        ),
+    }
+
 async def periodic_jobs_refresh():
     """Scheduled background worker running every 6 hours."""
     while True:

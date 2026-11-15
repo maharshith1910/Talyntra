@@ -490,6 +490,168 @@ button, input, textarea { font: inherit; color: inherit; }
   color: #064e3b;
 }
 
+/* ── Phase 5: Interrogation Panel & Placement Mode Styles ── */
+.panel-top-controls {
+  padding: 14px clamp(16px, 4vw, 64px) 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.panel-tabs-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+}
+.panel-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--muted);
+  text-align: left;
+}
+.panel-tab-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+.panel-tab-btn--active {
+  background: rgba(79, 70, 229, 0.25);
+  border-color: var(--accent-cyan);
+  color: #fff;
+  box-shadow: 0 0 12px rgba(126, 240, 236, 0.15);
+}
+.panel-tab-avatar {
+  font-size: 20px;
+}
+.panel-tab-title {
+  font-weight: 700;
+  font-size: var(--fs-sm);
+  color: #fff;
+}
+.panel-tab-badge {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--accent-cyan);
+  letter-spacing: 0.4px;
+}
+
+.company-selector-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  background: rgba(0, 44, 46, 0.5);
+  border: 1px solid rgba(126, 240, 236, 0.2);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: var(--fs-xs);
+}
+.company-selector-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.company-select {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(126, 240, 236, 0.3);
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.company-verification-pill {
+  font-size: 11px;
+  color: #fcd34d;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.target-challenge-banner {
+  margin: 0 clamp(16px, 4vw, 64px);
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.15), rgba(79, 70, 229, 0.15));
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: var(--fs-xs);
+}
+.target-skill-name {
+  color: #fff;
+  font-weight: 700;
+  font-size: var(--fs-sm);
+}
+
+.rubric-eval-card {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(126, 240, 236, 0.3);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+}
+.rubric-eval-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 6px;
+}
+.rubric-score-badge {
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+}
+.rubric-score--pass {
+  background: rgba(52, 211, 153, 0.2);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.4);
+}
+.rubric-score--fail {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+.rubric-dims-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+.rubric-dim-item {
+  background: rgba(255, 255, 255, 0.04);
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+.evidence-delta-pill {
+  background: rgba(52, 211, 153, 0.15);
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  color: #34d399;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+
 /* ── Animations ── */
 .page-enter { animation: rise .35s cubic-bezier(.2,.8,.2,1) both; }
 
