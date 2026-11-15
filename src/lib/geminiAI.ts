@@ -72,8 +72,10 @@ export async function streamChat(
           callbacks.onToken(token);
         },
         onComplete: (fullText) => {
-          receivedTokens = true;
-          callbacks.onComplete(fullText);
+          if (fullText && fullText.trim().length > 0) {
+            receivedTokens = true;
+            callbacks.onComplete(fullText);
+          }
         },
         onError: (err) => {
           console.warn('FastAPI backend stream failed or offline:', err);

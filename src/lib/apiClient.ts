@@ -123,6 +123,10 @@ export async function streamChatRemotely(
             if (data.token) {
               fullText += data.token;
               callbacks.onToken(data.token);
+            } else if (data.error) {
+              const errTxt = `⚠️ ${typeof data.error === 'string' ? data.error : JSON.stringify(data.error)}`;
+              fullText += errTxt;
+              callbacks.onToken(errTxt);
             }
           } catch {
             // skip malformed SSE chunk
