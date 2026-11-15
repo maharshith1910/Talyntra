@@ -20,6 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 import httpx
+from .jobs import job_market_corpus, CounterfactualSkillResult
 
 app = FastAPI(
     title="Talyntra Evidence Engine API",
@@ -690,6 +691,61 @@ def health_check():
         "gemini_server_configured": bool(GEMINI_API_KEY),
         "timestamp": datetime.utcnow().isoformat()
     }
+
+# --- Phase 4: Job Corpus & Counterfactual Learning-ROI Endpoints ---
+class CounterfactualRequest(BaseModel):
+    evidence_graph: Dict[str, Any]
+    threshold: Optional[float] = 0.70
+
+@app.get("/api/v1/jobs/postings")
+def list_job_postings():
+    """Returns active job market corpus postings and last refresh timestamp."""
+    return {
+        "success": True,
+        "total_count": len(job_market_corpus.postings),
+        "last_refreshed_at": job_market_corpus.last_refreshed_at,
+        "postings": [p.dict() for p in job_market_corpus.postings.values()],
+    }
+
+@app.post("/api/v1/jobs/refresh")
+async def trigger_job_refresh():
+    """Manually triggers job ingestion worker to poll official APIs and deduplicate."""
+    stats = await job_market_corpus.refresh_from_official_api()
+    return stats
+
+@app.post("/api/v1/roi/counterfactual")
+def compute_counterfactual_roi(payload: CounterfactualRequest):
+    """
+    Computes marginal delta in accessible roles and Learning-ROI by virtually
+    injecting each candidate missing skill into candidate's Evidence Graph.
+    """
+    results = job_market_corpus.evaluate_counterfactual_roi(
+        payload.evidence_graph,
+        threshold=payload.threshold or 0.70,
+    )
+    return {
+        "success": True,
+        "total_corpus_size": len(job_market_corpus.postings),
+        "matching_threshold": payload.threshold or 0.70,
+        "ranked_skills": [r.dict() for r in results],
+        "assumptions_summary": (
+            "Deliberate practice hours are normative assumptions for an engineer with CS background. "
+            f"Evaluated against active deterministic benchmark corpus ({len(job_market_corpus.postings)} roles) at 70% match threshold."
+        ),
+    }
+
+async def periodic_jobs_refresh():
+    """Scheduled background worker running every 6 hours."""
+    while True:
+        await asyncio.sleep(21600)  # 6 hours
+        try:
+            await job_market_corpus.refresh_from_official_api()
+        except Exception:
+            pass
+
+@app.on_event("startup")
+async def startup_jobs_scheduler():
+    asyncio.create_task(periodic_jobs_refresh())
 
 @app.get("/api/v1/evidence-graph", response_model=EvidenceGraphResponse)
 def get_evidence_graph():

@@ -269,7 +269,7 @@ export default function Roadmap() {
                               <input
                                 type="checkbox"
                                 checked={act.completed}
-                                onChange={() => {}}
+                                onChange={() => { }}
                                 style={{ display: 'none' }}
                               />
                               <span className="check-box-square">{act.completed ? '✓' : ''}</span>

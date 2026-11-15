@@ -28,4 +28,6 @@ deverr.txt
 
 # Temp
 *.tmp
+__pycache__/
+*.pyc
 

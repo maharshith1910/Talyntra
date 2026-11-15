@@ -191,3 +191,47 @@ BEGIN
     WHERE expires_at < NOW();
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- =============================================================================
+-- 9. Phase 4: Job Market Corpus & pgvector Indexing
+-- =============================================================================
+CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE IF NOT EXISTS public.job_postings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    external_id TEXT NOT NULL,
+    source TEXT NOT NULL,                  -- 'remotive', 'usajobs', 'adzuna', 'greenhouse'
+    title TEXT NOT NULL,
+    company TEXT NOT NULL,
+    location TEXT,
+    target_role TEXT NOT NULL DEFAULT 'Software Engineer',
+    required_skills JSONB NOT NULL DEFAULT '[]'::jsonb,
+    preferred_skills JSONB NOT NULL DEFAULT '[]'::jsonb,
+    raw_text TEXT NOT NULL,
+    content_hash TEXT UNIQUE NOT NULL,      -- SHA-256 for deterministic deduplication
+    embedding vector(1536),                -- Semantic vector representation
+    fetched_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+-- HNSW Vector Index for sub-millisecond approximate cosine similarity
+CREATE INDEX IF NOT EXISTS idx_job_postings_embedding_hnsw
+    ON public.job_postings
+    USING hnsw (embedding vector_cosine_ops)
+    WITH (m = 16, ef_construction = 64);
+
+-- Deduplication index
+CREATE INDEX IF NOT EXISTS idx_job_postings_content_hash
+    ON public.job_postings (content_hash);
+
+-- Role filtering index
+CREATE INDEX IF NOT EXISTS idx_job_postings_target_role
+    ON public.job_postings (target_role);
+
+-- RLS: Job postings are read-only public data for authenticated users
+ALTER TABLE public.job_postings ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow public read access to job postings"
+    ON public.job_postings FOR SELECT
+    TO authenticated, anon
+    USING (true);
+

@@ -141,3 +141,43 @@ export async function streamChatRemotely(
   }
 }
 
+export async function fetchCounterfactualROIRemotely(
+  evidenceGraph: any,
+  threshold: number = 0.70
+): Promise<any | null> {
+  if (!isRemoteBackendConfigured()) return null;
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/roi/counterfactual`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        evidence_graph: evidenceGraph,
+        threshold,
+      }),
+    });
+
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.warn('Failed to fetch remote counterfactual ROI, using local engine:', err);
+    return null;
+  }
+}
+
+export async function refreshJobCorpusRemotely(): Promise<{ total_postings: number; refreshed_at: string } | null> {
+  if (!isRemoteBackendConfigured()) return null;
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/jobs/refresh`, {
+      method: 'POST',
+    });
+
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.warn('Failed to refresh job corpus remotely:', err);
+    return null;
+  }
+}
+
